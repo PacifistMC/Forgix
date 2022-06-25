@@ -1,0 +1,62 @@
+plugins {
+    id 'java'
+    id 'java-gradle-plugin'
+    id 'com.github.johnrengelman.shadow' version '7.0.0'
+    id 'maven-publish'
+    id 'com.gradle.plugin-publish' version '0.16.0'
+}
+
+group 'io.github.pacifistmc.forgix'
+version '1.0'
+
+configurations {
+    shadowMe
+    implementation.extendsFrom shadowMe
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation gradleApi()
+
+    shadowMe 'commons-io:commons-io:2.11.0'
+
+    // Magic
+    shadowMe('me.lucko:jar-relocator:1.5')
+    shadowMe fileTree(dir: 'libs', include: ['*.jar']) // https://bitbucket.org/ReaperSoon/maven-repo/src/367c0bcb2749/fr/stevecohen/jarmanager
+}
+
+shadowJar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    configurations = [project.configurations.getByName("shadowMe")]
+    archiveClassifier.set(null)
+}
+
+gradlePlugin {
+    plugins {
+        Forgix {
+            id = "io.github.pacifistmc.forgix"
+            displayName = 'Forgix'
+            description = 'This plugin merges Fabric (also Quilt) & Forge jars into a single jar.'
+            implementationClass = "io.github.pacifistmc.forgix.ForgixPlugin"
+        }
+    }
+}
+
+
+pluginBundle {
+    website = 'https://github.com/PacifistMC'
+    vcsUrl = 'https://github.com/PacifistMC/Forgix'
+    tags = ['forge', 'merge', 'jars', 'fabric', 'quilt', 'minecraft', 'architectury', 'forgix', 'pacifistmc']
+}
+
+publishing {
+    repositories {
+        maven {
+            name = 'localPluginRepository'
+            url = '../local-plugin-repository'
+        }
+    }
+}
