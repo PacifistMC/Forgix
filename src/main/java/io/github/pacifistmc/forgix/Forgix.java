@@ -121,7 +121,9 @@ public class Forgix {
         if (quiltJar != null && quiltJar.exists()) new File(quiltTemps, "META-INF/MANIFEST.MF").delete();
 
         new File(mergedTemps, "META-INF/MANIFEST.MF").createNewFile();
-        mergedManifest.write(new FileOutputStream(new File(mergedTemps, "META-INF/MANIFEST.MF")));
+        FileOutputStream outputStream = new FileOutputStream(new File(mergedTemps, "META-INF/MANIFEST.MF"));
+        mergedManifest.write(outputStream);
+        outputStream.close();
 
         if (forgeJar != null && forgeJar.exists()) FileUtils.copyDirectory(forgeTemps, mergedTemps);
         if (fabricJar != null && fabricJar.exists()) FileUtils.copyDirectory(fabricTemps, mergedTemps);
