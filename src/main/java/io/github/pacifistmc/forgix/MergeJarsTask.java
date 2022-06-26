@@ -1,5 +1,6 @@
 package io.github.pacifistmc.forgix;
 
+import org.apache.commons.io.FileUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.tasks.TaskAction;
@@ -86,6 +87,8 @@ public class MergeJarsTask extends DefaultTask {
             }
         }
 
-        new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName()).merge();
+        File mergedJar = new File(ForgixPlugin.rootProject.getBuildDir(), "Merged" + File.separator + ForgixPlugin.settings.getMergedJarName());
+        if (mergedJar.exists()) FileUtils.forceDelete(mergedJar);
+        FileUtils.moveFile(new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName()).merge(), mergedJar);
     }
 }

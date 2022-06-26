@@ -5,19 +5,23 @@ import fr.stevecohen.jarmanager.JarUnpacker;
 import me.lucko.jarrelocator.JarRelocator;
 import me.lucko.jarrelocator.Relocation;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 
 import javax.annotation.Nullable;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
 import java.util.jar.Manifest;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 // This is the class that does the magic.
+@SuppressWarnings({"ResultOfMethodCallIgnored", "UnusedReturnValue", "FieldCanBeLocal"})
 public class Forgix {
+    private final String version = "1.0";
+
     private File forgeJar;
     private final Map<String, String> forgeRelocations;
     private final List<String> forgeMixins;
@@ -47,17 +51,17 @@ public class Forgix {
             throw new IllegalArgumentException("No jars were provided.");
         }
 
-        if (forgeJar == null || !forgeJar.exists()) {
+        if (forgeJar != null && !forgeJar.exists()) {
             System.out.println("Forge jar does not exist! You can ignore this if you are not using forge.");
             System.out.println("You might want to change Forgix settings if something is wrong.");
         }
 
-        if (fabricJar == null || !fabricJar.exists()) {
+        if (fabricJar != null && !fabricJar.exists()) {
             System.out.println("Fabric jar does not exist! You can ignore this if you are not using fabric.");
             System.out.println("You might want to change Forgix settings if something is wrong.");
         }
 
-        if (quiltJar == null || !quiltJar.exists()) {
+        if (quiltJar != null && !quiltJar.exists()) {
             System.out.println("Quilt jar does not exist! You can ignore this if you are not using quilt.");
             System.out.println("You might want to change Forgix settings if something is wrong.");
         }
@@ -71,22 +75,13 @@ public class Forgix {
         File forgeTemps = new File(tempDir, "forge-temps");
         File quiltTemps = new File(tempDir, "quilt-temps");
 
-        if (fabricTemps.exists()) {
-            deleteDirectory(fabricTemps);
-            fabricTemps.delete();
-        }
+        if (fabricTemps.exists()) FileUtils.deleteQuietly(fabricTemps);
         fabricTemps.mkdirs();
 
-        if (forgeTemps.exists()) {
-            deleteDirectory(forgeTemps);
-            forgeTemps.delete();
-        }
+        if (forgeTemps.exists()) FileUtils.deleteQuietly(forgeTemps);
         forgeTemps.mkdirs();
 
-        if (quiltTemps.exists()) {
-            deleteDirectory(quiltTemps);
-            quiltTemps.delete();
-        }
+        if (quiltTemps.exists()) FileUtils.deleteQuietly(quiltTemps);
         quiltTemps.mkdirs();
 
         JarUnpacker jarUnpacker = new JarUnpacker();
@@ -95,10 +90,7 @@ public class Forgix {
         if (quiltJar != null && quiltJar.exists()) jarUnpacker.unpack(quiltJar.getAbsolutePath(), quiltTemps.getAbsolutePath());
 
         File mergedTemps = new File(tempDir, "merged-temps");
-        if (mergedTemps.exists()) {
-            deleteDirectory(mergedTemps);
-            mergedTemps.delete();
-        }
+        if (mergedTemps.exists()) FileUtils.deleteQuietly(mergedTemps);
         mergedTemps.mkdirs();
 
         String forgeMixins = null;
@@ -110,6 +102,8 @@ public class Forgix {
         if (forgeJar != null && forgeJar.exists()) mergedManifest.read(new FileInputStream(new File(forgeTemps, "META-INF/MANIFEST.MF")));
         if (fabricJar != null && fabricJar.exists()) mergedManifest.read(new FileInputStream(new File(fabricTemps, "META-INF/MANIFEST.MF")));
         if (quiltJar != null && quiltJar.exists()) mergedManifest.read(new FileInputStream(new File(quiltTemps, "META-INF/MANIFEST.MF")));
+
+        mergedManifest.getMainAttributes().putValue("Forgix", version);
 
         if (forgeMixins != null) {
             mergedManifest.getMainAttributes().remove("MixinConfigs");
@@ -124,6 +118,8 @@ public class Forgix {
         FileOutputStream outputStream = new FileOutputStream(new File(mergedTemps, "META-INF/MANIFEST.MF"));
         mergedManifest.write(outputStream);
         outputStream.close();
+
+        remapResources(forgeTemps, fabricTemps, quiltTemps);
 
         if (forgeJar != null && forgeJar.exists()) FileUtils.copyDirectory(forgeTemps, mergedTemps);
         if (fabricJar != null && fabricJar.exists()) FileUtils.copyDirectory(fabricTemps, mergedTemps);
@@ -146,10 +142,10 @@ public class Forgix {
             Files.setPosixFilePermissions(mergedJar.toPath(), perms);
         } catch (UnsupportedOperationException | IOException ignored) { }
 
-        deleteDirectory(mergedTemps);
-        deleteDirectory(forgeTemps);
-        deleteDirectory(fabricTemps);
-        deleteDirectory(quiltTemps);
+        FileUtils.deleteQuietly(mergedTemps);
+        FileUtils.deleteQuietly(forgeTemps);
+        FileUtils.deleteQuietly(fabricTemps);
+        FileUtils.deleteQuietly(quiltTemps);
 
         forgeJar.delete();
         fabricJar.delete();
@@ -205,13 +201,102 @@ public class Forgix {
         }
     }
 
-    boolean deleteDirectory(File directoryToBeDeleted) {
-        File[] allContents = directoryToBeDeleted.listFiles();
-        if (allContents != null) {
-            for (File file : allContents) {
-                deleteDirectory(file);
+    private void remapResources(File forgeTemps, File fabricTemps, File quiltTemps) throws IOException {
+        if (forgeJar != null && forgeJar.exists()) {
+            for (File file : listAllTextFiles(forgeTemps)) {
+                String text = FileUtils.readFileToString(file, Charset.defaultCharset());
+                if (!Pattern.matches("forge." + Matcher.quoteReplacement(group), text)) {
+                    String newText = text.replaceAll(Matcher.quoteReplacement(group), "forge." + group);
+                    FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
+                }
+
+                if (forgeRelocations != null) {
+                    for (Map.Entry<String, String> entry : forgeRelocations.entrySet()) {
+                        if (!Pattern.matches(Matcher.quoteReplacement(entry.getValue()), text)) {
+                            String newText = text.replaceAll(Matcher.quoteReplacement(entry.getKey()), entry.getValue());
+                            FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
+                        }
+                    }
+                }
             }
         }
-        return directoryToBeDeleted.delete();
+
+        if (fabricJar != null && fabricJar.exists()) {
+            for (File file : listAllTextFiles(fabricTemps)) {
+                String text = FileUtils.readFileToString(file, Charset.defaultCharset());
+                if (!Pattern.matches("fabric." + Matcher.quoteReplacement(group), text)) {
+                    String newText = text.replaceAll(Matcher.quoteReplacement(group), "fabric." + group);
+                    FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
+                }
+
+                if (fabricRelocations != null) {
+                    for (Map.Entry<String, String> entry : fabricRelocations.entrySet()) {
+                        if (!Pattern.matches(Matcher.quoteReplacement(entry.getValue()), text)) {
+                            String newText = text.replaceAll(Matcher.quoteReplacement(entry.getKey()), entry.getValue());
+                            FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (quiltJar != null && quiltJar.exists()) {
+            for (File file : listAllTextFiles(quiltTemps)) {
+                String text = FileUtils.readFileToString(file, Charset.defaultCharset());
+                if (!Pattern.matches("quilt." + Matcher.quoteReplacement(group), text)) {
+                    String newText = text.replaceAll(Matcher.quoteReplacement(group), "quilt." + group);
+                    FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
+                }
+
+                if (quiltRelocations != null) {
+                    for (Map.Entry<String, String> entry : quiltRelocations.entrySet()) {
+                        if (!Pattern.matches(Matcher.quoteReplacement(entry.getValue()), text)) {
+                            String newText = text.replaceAll(Matcher.quoteReplacement(entry.getKey()), entry.getValue());
+                            FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
+                        }
+                    }
+                }
+            }
+        }
     }
+
+    private List<File> listAllTextFiles(File dir) {
+        List<File> files = new ArrayList<>();
+        File[] list = dir.listFiles();
+        if (list == null) return files;
+        for (File file : list) {
+            if (file.isDirectory()) {
+                files.addAll(listAllTextFiles(file));
+            } else {
+                if (!FilenameUtils.getExtension(file.getName()).equals("class")) {
+                    if (!isBinary(file)) files.add(file);
+                }
+            }
+        }
+        return files;
+    }
+
+    private boolean isBinary(File file) {
+        try {
+            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+            int read = bis.read();
+            while (read != -1) {
+                if (isMagicCharacter(read)) return true;
+                read = bis.read();
+            }
+            bis.close();
+            return false;
+        } catch (IOException exception) {
+            return false;
+        }
+    }
+
+    private boolean isMagicCharacter(int decimal) {
+        if (decimal > 127) return true;
+        if (decimal < 37) {
+            return decimal != 10 && decimal != 13 && decimal != 9 && decimal != 32 && decimal != 11 && decimal != 12 && decimal != 8;
+        }
+        return false;
+    }
+
 }
