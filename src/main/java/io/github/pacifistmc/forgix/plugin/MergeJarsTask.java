@@ -1,5 +1,6 @@
-package io.github.pacifistmc.forgix;
+package io.github.pacifistmc.forgix.plugin;
 
+import io.github.pacifistmc.forgix.Forgix;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
@@ -9,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
+@SuppressWarnings({"ConstantConditions", "OptionalGetWithoutIsPresent"})
 public class MergeJarsTask extends DefaultTask {
     @TaskAction
     void mergeJars() throws IOException {

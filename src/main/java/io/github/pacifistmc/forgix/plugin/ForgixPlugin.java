@@ -1,8 +1,9 @@
-package io.github.pacifistmc.forgix;
+package io.github.pacifistmc.forgix.plugin;
 
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 
+@SuppressWarnings("NullableProblems")
 public class ForgixPlugin implements Plugin<Project> {
     static ForgixExtension settings;
     static Project rootProject;

@@ -40,7 +40,7 @@ gradlePlugin {
             id = "io.github.pacifistmc.forgix"
             displayName = 'Forgix'
             description = 'This plugin merges Fabric (also Quilt) & Forge jars into a single jar.'
-            implementationClass = "io.github.pacifistmc.forgix.ForgixPlugin"
+            implementationClass = "io.github.pacifistmc.forgix.plugin.ForgixPlugin"
         }
     }
 }

@@ -1,4 +1,4 @@
-package io.github.pacifistmc.forgix;
+package io.github.pacifistmc.forgix.plugin;
 
 import groovy.lang.Closure;
 import org.apache.commons.io.FilenameUtils;
@@ -10,7 +10,7 @@ import java.util.Map;
 @SuppressWarnings("unused")
 public class ForgixExtension {
     private String group = ForgixPlugin.rootProject.getGroup().toString();
-    private String mergedJarName = ForgixPlugin.rootProject.getName() + "-" + ForgixPlugin.rootProject.getVersion().toString() + ".jar";
+    private String mergedJarName = ForgixPlugin.rootProject.getName() + "-" + ForgixPlugin.rootProject.getVersion() + ".jar";
 
     public String getGroup() {
         return group;
@@ -80,6 +80,7 @@ public class ForgixExtension {
         return quiltContainer;
     }
 
+    @SuppressWarnings("InnerClassMayBeStatic")
     public class ForgeContainer {
         private String projectName = "forge";
         private String jarLocation;
@@ -119,6 +120,7 @@ public class ForgixExtension {
         }
     }
 
+    @SuppressWarnings("InnerClassMayBeStatic")
     public class FabricContainer {
         private String projectName = "fabric";
         private String jarLocation;
@@ -149,6 +151,7 @@ public class ForgixExtension {
         }
     }
 
+    @SuppressWarnings("InnerClassMayBeStatic")
     public class QuiltContainer {
         private String projectName = "quilt";
         private String jarLocation;
