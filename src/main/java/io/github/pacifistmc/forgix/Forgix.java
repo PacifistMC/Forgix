@@ -5,10 +5,12 @@ import fr.stevecohen.jarmanager.JarUnpacker;
 import me.lucko.jarrelocator.JarRelocator;
 import me.lucko.jarrelocator.Relocation;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.FilenameUtils;
 
 import javax.annotation.Nullable;
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
@@ -17,18 +19,21 @@ import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static io.github.pacifistmc.forgix.utils.FileUtils.listAllTextFiles;
+import static io.github.pacifistmc.forgix.utils.FileUtils.manifestJars;
+
 // This is the class that does the magic.
 @SuppressWarnings({"ResultOfMethodCallIgnored", "UnusedReturnValue", "FieldCanBeLocal"})
 public class Forgix {
     private final String version = "1.0";
 
     private File forgeJar;
-    private final Map<String, String> forgeRelocations;
+    private Map<String, String> forgeRelocations;
     private final List<String> forgeMixins;
     private File fabricJar;
-    private final Map<String, String> fabricRelocations;
+    private Map<String, String> fabricRelocations;
     private File quiltJar;
-    private final Map<String, String> quiltRelocations;
+    private Map<String, String> quiltRelocations;
     private final String group;
     private final File tempDir;
     private final String mergedJarName;
@@ -93,11 +98,6 @@ public class Forgix {
         if (mergedTemps.exists()) FileUtils.deleteQuietly(mergedTemps);
         mergedTemps.mkdirs();
 
-        String forgeMixins = null;
-        if (this.forgeMixins != null) {
-            forgeMixins = String.join(",", this.forgeMixins);
-        }
-
         Manifest mergedManifest = new Manifest();
         if (forgeJar != null && forgeJar.exists()) mergedManifest.read(new FileInputStream(new File(forgeTemps, "META-INF/MANIFEST.MF")));
         if (fabricJar != null && fabricJar.exists()) mergedManifest.read(new FileInputStream(new File(fabricTemps, "META-INF/MANIFEST.MF")));
@@ -105,9 +105,8 @@ public class Forgix {
 
         mergedManifest.getMainAttributes().putValue("Forgix", version);
 
-        if (forgeMixins != null) {
-            mergedManifest.getMainAttributes().remove("MixinConfigs");
-            mergedManifest.getMainAttributes().putValue("MixinConfigs", forgeMixins);
+        if (this.forgeMixins != null) {
+            mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.forgeMixins));
         }
 
         if (forgeJar != null && forgeJar.exists()) new File(forgeTemps, "META-INF/MANIFEST.MF").delete();
@@ -202,7 +201,14 @@ public class Forgix {
     }
 
     private void remapResources(File forgeTemps, File fabricTemps, File quiltTemps) throws IOException {
+        if (forgeRelocations == null) forgeRelocations = new HashMap<>();
         if (forgeJar != null && forgeJar.exists()) {
+            for (File file : manifestJars(forgeTemps)) {
+                File remappedFile = new File(file.getParentFile(), "forge-" + file.getName());
+                forgeRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
+            }
+
             for (File file : listAllTextFiles(forgeTemps)) {
                 String text = FileUtils.readFileToString(file, Charset.defaultCharset());
                 if (!Pattern.matches("forge." + Matcher.quoteReplacement(group), text)) {
@@ -221,7 +227,14 @@ public class Forgix {
             }
         }
 
+        if (fabricRelocations == null) fabricRelocations = new HashMap<>();
         if (fabricJar != null && fabricJar.exists()) {
+            for (File file : manifestJars(fabricTemps)) {
+                File remappedFile = new File(file.getParentFile(), "fabric-" + file.getName());
+                fabricRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
+            }
+
             for (File file : listAllTextFiles(fabricTemps)) {
                 String text = FileUtils.readFileToString(file, Charset.defaultCharset());
                 if (!Pattern.matches("fabric." + Matcher.quoteReplacement(group), text)) {
@@ -240,7 +253,14 @@ public class Forgix {
             }
         }
 
+        if (quiltRelocations == null) quiltRelocations = new HashMap<>();
         if (quiltJar != null && quiltJar.exists()) {
+            for (File file : manifestJars(quiltTemps)) {
+                File remappedFile = new File(file.getParentFile(), "quilt-" + file.getName());
+                quiltRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
+            }
+
             for (File file : listAllTextFiles(quiltTemps)) {
                 String text = FileUtils.readFileToString(file, Charset.defaultCharset());
                 if (!Pattern.matches("quilt." + Matcher.quoteReplacement(group), text)) {
@@ -258,45 +278,6 @@ public class Forgix {
                 }
             }
         }
-    }
-
-    private List<File> listAllTextFiles(File dir) {
-        List<File> files = new ArrayList<>();
-        File[] list = dir.listFiles();
-        if (list == null) return files;
-        for (File file : list) {
-            if (file.isDirectory()) {
-                files.addAll(listAllTextFiles(file));
-            } else {
-                if (!FilenameUtils.getExtension(file.getName()).equals("class")) {
-                    if (!isBinary(file)) files.add(file);
-                }
-            }
-        }
-        return files;
-    }
-
-    private boolean isBinary(File file) {
-        try {
-            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
-            int read = bis.read();
-            while (read != -1) {
-                if (isMagicCharacter(read)) return true;
-                read = bis.read();
-            }
-            bis.close();
-            return false;
-        } catch (IOException exception) {
-            return false;
-        }
-    }
-
-    private boolean isMagicCharacter(int decimal) {
-        if (decimal > 127) return true;
-        if (decimal < 37) {
-            return decimal != 10 && decimal != 13 && decimal != 9 && decimal != 32 && decimal != 11 && decimal != 12 && decimal != 8;
-        }
-        return false;
     }
 
 }

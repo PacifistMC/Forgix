@@ -60,3 +60,5 @@ publishing {
         }
     }
 }
+
+jar.finalizedBy(shadowJar)
