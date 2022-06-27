@@ -10,10 +10,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-@SuppressWarnings({"ConstantConditions", "OptionalGetWithoutIsPresent"})
+@SuppressWarnings({"ConstantConditions", "OptionalGetWithoutIsPresent", "ResultOfMethodCallIgnored"})
 public class MergeJarsTask extends DefaultTask {
     @TaskAction
     void mergeJars() throws IOException {
+        long time = System.currentTimeMillis();
         if (ForgixPlugin.settings.mergedJarName == null || ForgixPlugin.settings.group == null) {
             System.out.println("Please configure \"group\" and \"mergedJarName\" manually!");
             return;
@@ -96,10 +97,10 @@ public class MergeJarsTask extends DefaultTask {
             }
         }
 
-        File mergedJar = new File(ForgixPlugin.rootProject.getBuildDir(), "Merged" + File.separator + ForgixPlugin.settings.getMergedJarName());
+        File mergedJar = new File(ForgixPlugin.rootProject.getRootDir(), "Merged" + File.separator + ForgixPlugin.settings.getMergedJarName());
         if (mergedJar.exists()) FileUtils.forceDelete(mergedJar);
         if (!mergedJar.getParentFile().exists()) mergedJar.getParentFile().mkdirs();
-//        FileUtils.moveFile(new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName()).merge(), mergedJar);
-        new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName()).merge();
+        new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName()).merge().renameTo(mergedJar);
+        System.out.println("Merged jar created in " + (System.currentTimeMillis() - time) / 1000.0 + " seconds.");
     }
 }

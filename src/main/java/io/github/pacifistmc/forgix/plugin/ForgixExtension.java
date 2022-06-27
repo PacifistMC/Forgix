@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 // I couldn't find any good resources on how to do this, so I just went with it and wrote a lot of dumb code.
-@SuppressWarnings("unused")
+@SuppressWarnings({"unused", "ConstantConditions"})
 public class ForgixExtension {
     String group;
     String mergedJarName;

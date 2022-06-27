@@ -133,7 +133,6 @@ public class Forgix {
         }
 
         if (mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
-            System.out.println();
             System.out.println("Couldn't detect forge mixins. You can ignore this if you are not using mixins with forge.");
             System.out.println("If this is an issue then you can configure mixins manually");
             System.out.println("Though we'll try to detect them automatically.");
@@ -143,13 +142,12 @@ public class Forgix {
         remapResources(forgeTemps, fabricTemps, quiltTemps);
 
         if (this.forgeMixins != null && mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
-            System.out.println();
             System.out.println("Forge mixins detected: " + String.join(",", this.forgeMixins));
             System.out.println();
             if (!forgeMixins.isEmpty()) mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.forgeMixins));
         }
 
-        mergedManifest.getMainAttributes().putValue("Forgix", version);
+        mergedManifest.getMainAttributes().putValue("Forgix-Version", version);
 
         if (forgeJar != null && forgeJar.exists()) new File(forgeTemps, "META-INF/MANIFEST.MF").delete();
         if (fabricJar != null && fabricJar.exists()) new File(fabricTemps, "META-INF/MANIFEST.MF").delete();
