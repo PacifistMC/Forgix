@@ -9,8 +9,26 @@ import java.util.Map;
 // I couldn't find any good resources on how to do this, so I just went with it and wrote a lot of dumb code.
 @SuppressWarnings("unused")
 public class ForgixExtension {
-    private String group = ForgixPlugin.rootProject.getGroup().toString();
-    private String mergedJarName = ForgixPlugin.rootProject.getName() + "-" + ForgixPlugin.rootProject.getVersion() + ".jar";
+    String group;
+    String mergedJarName;
+
+    public ForgixExtension() {
+        if (ForgixPlugin.rootProject.hasProperty("maven_group")) {
+            group = ForgixPlugin.rootProject.property("maven_group").toString();
+        } else {
+            System.out.println("No \"maven_group\" property found! Please configure group manually!");
+        }
+
+        if (ForgixPlugin.rootProject.hasProperty("mod_version")) {
+            if (ForgixPlugin.rootProject.hasProperty("archives_base_name")) {
+                mergedJarName = ForgixPlugin.rootProject.property("archives_base_name").toString() + "-" +ForgixPlugin.rootProject.property("mod_version").toString() + ".jar";
+            } else {
+                System.out.println("No \"archives_base_name\" property found! Please configure mergedJarName manually!");
+            }
+        } else {
+            System.out.println("No \"mod_version\" property found! Please configure mergedJarName manually!");
+        }
+    }
 
     public String getGroup() {
         return group;
@@ -29,7 +47,7 @@ public class ForgixExtension {
         this.mergedJarName = mergedJarName;
     }
 
-    private ForgeContainer forgeContainer;
+    ForgeContainer forgeContainer;
 
     public ForgeContainer forge(Closure<ForgeContainer> closure) {
         forgeContainer = new ForgeContainer();
@@ -46,7 +64,7 @@ public class ForgixExtension {
         return forgeContainer;
     }
 
-    private FabricContainer fabricContainer;
+    FabricContainer fabricContainer;
 
     public FabricContainer fabric(Closure<FabricContainer> closure) {
         fabricContainer = new FabricContainer();
@@ -63,7 +81,7 @@ public class ForgixExtension {
         return fabricContainer;
     }
 
-    private QuiltContainer quiltContainer;
+    QuiltContainer quiltContainer;
 
     public QuiltContainer quilt(Closure<QuiltContainer> closure) {
         quiltContainer = new QuiltContainer();
@@ -82,10 +100,10 @@ public class ForgixExtension {
 
     @SuppressWarnings("InnerClassMayBeStatic")
     public class ForgeContainer {
-        private String projectName = "forge";
-        private String jarLocation;
-        private Map<String, String> additionalRelocates;
-        private List<String> mixins;
+        String projectName = "forge";
+        String jarLocation;
+        Map<String, String> additionalRelocates;
+        List<String> mixins;
 
         public String getProjectName() {
             return projectName;
@@ -107,24 +125,26 @@ public class ForgixExtension {
             return additionalRelocates;
         }
 
-        public void setAdditionalRelocates(Map<String, String> additionalRelocates) {
-            this.additionalRelocates = additionalRelocates;
+        public void additionalRelocate(String from, String to) {
+            if (this.additionalRelocates == null) this.additionalRelocates = new java.util.HashMap<>();
+            this.additionalRelocates.put(from, to);
         }
 
         public List<String> getMixins() {
             return mixins;
         }
 
-        public void setMixins(List<String> mixins) {
-            this.mixins = mixins;
+        public void mixin(String mixin) {
+            if (this.mixins == null) this.mixins = new java.util.ArrayList<>();
+            this.mixins.add(mixin);
         }
     }
 
     @SuppressWarnings("InnerClassMayBeStatic")
     public class FabricContainer {
-        private String projectName = "fabric";
-        private String jarLocation;
-        private Map<String, String> additionalRelocates;
+        String projectName = "fabric";
+        String jarLocation;
+        Map<String, String> additionalRelocates;
 
         public String getProjectName() {
             return projectName;
@@ -146,16 +166,17 @@ public class ForgixExtension {
             return additionalRelocates;
         }
 
-        public void setAdditionalRelocates(Map<String, String> additionalRelocates) {
-            this.additionalRelocates = additionalRelocates;
+        public void additionalRelocate(String from, String to) {
+            if (this.additionalRelocates == null) this.additionalRelocates = new java.util.HashMap<>();
+            this.additionalRelocates.put(from, to);
         }
     }
 
     @SuppressWarnings("InnerClassMayBeStatic")
     public class QuiltContainer {
-        private String projectName = "quilt";
-        private String jarLocation;
-        private Map<String, String> additionalRelocates;
+        String projectName = "quilt";
+        String jarLocation;
+        Map<String, String> additionalRelocates;
 
         public String getProjectName() {
             return projectName;
@@ -177,8 +198,9 @@ public class ForgixExtension {
             return additionalRelocates;
         }
 
-        public void setAdditionalRelocates(Map<String, String> additionalRelocates) {
-            this.additionalRelocates = additionalRelocates;
+        public void additionalRelocate(String from, String to) {
+            if (this.additionalRelocates == null) this.additionalRelocates = new java.util.HashMap<>();
+            this.additionalRelocates.put(from, to);
         }
     }
 }

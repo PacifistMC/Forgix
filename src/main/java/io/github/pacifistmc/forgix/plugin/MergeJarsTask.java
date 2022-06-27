@@ -14,6 +14,10 @@ import java.util.*;
 public class MergeJarsTask extends DefaultTask {
     @TaskAction
     void mergeJars() throws IOException {
+        if (ForgixPlugin.settings.mergedJarName == null || ForgixPlugin.settings.group == null) {
+            System.out.println("Please configure \"group\" and \"mergedJarName\" manually!");
+            return;
+        }
         ForgixExtension.ForgeContainer forgeSettings = ForgixPlugin.settings.getForgeContainer();
         ForgixExtension.FabricContainer fabricSettings = ForgixPlugin.settings.getFabricContainer();
         ForgixExtension.QuiltContainer quiltSettings = ForgixPlugin.settings.getQuiltContainer();
@@ -52,7 +56,8 @@ public class MergeJarsTask extends DefaultTask {
                 forgeJar = new File(forgeProject.getProjectDir(), forgeSettings.getJarLocation());
             } else {
                 int i = 0;
-                for (File file : forgeProject.getBuildDir().listFiles()) {
+                for (File file : new File(forgeProject.getBuildDir(), "libs").listFiles()) {
+                    if (file.isDirectory()) continue;
                     if (file.getName().length() < i || i == 0) {
                         i = file.getName().length();
                         forgeJar = file;
@@ -66,7 +71,8 @@ public class MergeJarsTask extends DefaultTask {
                 fabricJar = new File(fabricProject.getProjectDir(), fabricSettings.getJarLocation());
             } else {
                 int i = 0;
-                for (File file : fabricProject.getBuildDir().listFiles()) {
+                for (File file : new File(fabricProject.getBuildDir(), "libs").listFiles()) {
+                    if (file.isDirectory()) continue;
                     if (file.getName().length() < i || i == 0) {
                         i = file.getName().length();
                         fabricJar = file;
@@ -80,7 +86,8 @@ public class MergeJarsTask extends DefaultTask {
                 quiltJar = new File(quiltProject.getProjectDir(), quiltSettings.getJarLocation());
             } else {
                 int i = 0;
-                for (File file : quiltProject.getBuildDir().listFiles()) {
+                for (File file : new File(quiltProject.getBuildDir(), "libs").listFiles()) {
+                    if (file.isDirectory()) continue;
                     if (file.getName().length() < i || i == 0) {
                         i = file.getName().length();
                         quiltJar = file;
@@ -91,6 +98,8 @@ public class MergeJarsTask extends DefaultTask {
 
         File mergedJar = new File(ForgixPlugin.rootProject.getBuildDir(), "Merged" + File.separator + ForgixPlugin.settings.getMergedJarName());
         if (mergedJar.exists()) FileUtils.forceDelete(mergedJar);
-        FileUtils.moveFile(new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName()).merge(), mergedJar);
+        if (!mergedJar.getParentFile().exists()) mergedJar.getParentFile().mkdirs();
+//        FileUtils.moveFile(new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName()).merge(), mergedJar);
+        new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName()).merge();
     }
 }

@@ -11,16 +11,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
 import java.util.jar.Manifest;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static io.github.pacifistmc.forgix.utils.FileUtils.listAllTextFiles;
-import static io.github.pacifistmc.forgix.utils.FileUtils.manifestJars;
+import static io.github.pacifistmc.forgix.utils.FileUtils.*;
 
 // This is the class that does the magic.
 @SuppressWarnings({"ResultOfMethodCallIgnored", "UnusedReturnValue", "FieldCanBeLocal"})
@@ -29,7 +25,7 @@ public class Forgix {
 
     private File forgeJar;
     private Map<String, String> forgeRelocations;
-    private final List<String> forgeMixins;
+    private List<String> forgeMixins;
     private File fabricJar;
     private Map<String, String> fabricRelocations;
     private File quiltJar;
@@ -52,6 +48,7 @@ public class Forgix {
     }
 
     public File merge() throws IOException {
+        tempDir.mkdirs();
         if (forgeJar == null && fabricJar == null && quiltJar == null) {
             throw new IllegalArgumentException("No jars were provided.");
         }
@@ -70,6 +67,15 @@ public class Forgix {
             System.out.println("Quilt jar does not exist! You can ignore this if you are not using quilt.");
             System.out.println("You might want to change Forgix settings if something is wrong.");
         }
+
+        System.out.println();
+        System.out.println("Settings:");
+        System.out.println("Forge: " + (forgeJar == null || !forgeJar.exists() ? "No" : "Yes"));
+        System.out.println("Fabric: " + (fabricJar == null || !fabricJar.exists() ? "No" : "Yes"));
+        System.out.println("Quilt: " + (quiltJar == null || !quiltJar.exists() ? "No" : "Yes"));
+        System.out.println("Group: " + group);
+        System.out.println("Merged Jar Name: " + mergedJarName);
+        System.out.println();
 
         remap();
 
@@ -99,26 +105,54 @@ public class Forgix {
         mergedTemps.mkdirs();
 
         Manifest mergedManifest = new Manifest();
-        if (forgeJar != null && forgeJar.exists()) mergedManifest.read(new FileInputStream(new File(forgeTemps, "META-INF/MANIFEST.MF")));
-        if (fabricJar != null && fabricJar.exists()) mergedManifest.read(new FileInputStream(new File(fabricTemps, "META-INF/MANIFEST.MF")));
-        if (quiltJar != null && quiltJar.exists()) mergedManifest.read(new FileInputStream(new File(quiltTemps, "META-INF/MANIFEST.MF")));
+        Manifest forgeManifest = new Manifest();
+        Manifest fabricManifest = new Manifest();
+        Manifest quiltManifest = new Manifest();
 
-        mergedManifest.getMainAttributes().putValue("Forgix", version);
+        FileInputStream fileInputStream = null;
+        if (forgeJar != null && forgeJar.exists()) forgeManifest.read(fileInputStream = new FileInputStream(new File(forgeTemps, "META-INF/MANIFEST.MF")));
+        if (fileInputStream != null) fileInputStream.close();
+        if (fabricJar != null && fabricJar.exists()) fabricManifest.read(fileInputStream = new FileInputStream(new File(fabricTemps, "META-INF/MANIFEST.MF")));
+        if (fileInputStream != null) fileInputStream.close();
+        if (quiltJar != null && quiltJar.exists()) quiltManifest.read(fileInputStream = new FileInputStream(new File(quiltTemps, "META-INF/MANIFEST.MF")));
+        if (fileInputStream != null) fileInputStream.close();
+
+        forgeManifest.getMainAttributes().forEach((key, value) -> mergedManifest.getMainAttributes().putValue(key.toString(), value.toString()));
+        fabricManifest.getMainAttributes().forEach((key, value) -> mergedManifest.getMainAttributes().putValue(key.toString(), value.toString()));
+        quiltManifest.getMainAttributes().forEach((key, value) -> mergedManifest.getMainAttributes().putValue(key.toString(), value.toString()));
 
         if (this.forgeMixins != null) {
-            mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.forgeMixins));
+            List<String> newForgeMixins = new ArrayList<>();
+            for (String mixin : this.forgeMixins) {
+                newForgeMixins.add("forge-" + mixin);
+            }
+            this.forgeMixins = newForgeMixins;
+            if (!forgeMixins.isEmpty()) mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.forgeMixins));
         }
+
+        if (mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
+            System.out.println("Couldn't detect forge mixins. You can ignore this if you are not using mixins with forge.");
+            System.out.println("If this is an issue then you can configure mixins manually");
+            System.out.println("Though we'll try to detect them automatically.");
+        }
+
+        remapResources(forgeTemps, fabricTemps, quiltTemps);
+
+        if (this.forgeMixins != null && mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
+            System.out.println("Forge mixins detected: " + String.join(",", this.forgeMixins));
+            if (!forgeMixins.isEmpty()) mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.forgeMixins));
+        }
+
+        mergedManifest.getMainAttributes().putValue("Forgix", version);
 
         if (forgeJar != null && forgeJar.exists()) new File(forgeTemps, "META-INF/MANIFEST.MF").delete();
         if (fabricJar != null && fabricJar.exists()) new File(fabricTemps, "META-INF/MANIFEST.MF").delete();
         if (quiltJar != null && quiltJar.exists()) new File(quiltTemps, "META-INF/MANIFEST.MF").delete();
 
-        new File(mergedTemps, "META-INF/MANIFEST.MF").createNewFile();
+        new File(metaInf(mergedTemps), "MANIFEST.MF").createNewFile();
         FileOutputStream outputStream = new FileOutputStream(new File(mergedTemps, "META-INF/MANIFEST.MF"));
         mergedManifest.write(outputStream);
         outputStream.close();
-
-        remapResources(forgeTemps, fabricTemps, quiltTemps);
 
         if (forgeJar != null && forgeJar.exists()) FileUtils.copyDirectory(forgeTemps, mergedTemps);
         if (fabricJar != null && fabricJar.exists()) FileUtils.copyDirectory(fabricTemps, mergedTemps);
@@ -157,6 +191,7 @@ public class Forgix {
         if (forgeJar != null && forgeJar.exists()) {
             File remappedForgeJar = new File(tempDir, "tempForgeInMerging.jar");
             if (remappedForgeJar.exists()) remappedForgeJar.delete();
+            remappedForgeJar.createNewFile();
 
             List<Relocation> forgeRelocation = new ArrayList<>();
             forgeRelocation.add(new Relocation(group, "forge." + group));
@@ -172,6 +207,7 @@ public class Forgix {
         if (fabricJar != null && fabricJar.exists()) {
             File remappedFabricJar = new File(tempDir, "tempFabricInMerging.jar");
             if (remappedFabricJar.exists()) remappedFabricJar.delete();
+            remappedFabricJar.createNewFile();
 
             List<Relocation> fabricRelocation = new ArrayList<>();
             fabricRelocation.add(new Relocation(group, "fabric." + group));
@@ -187,6 +223,7 @@ public class Forgix {
         if (quiltJar != null && quiltJar.exists()) {
             File remappedQuiltJar = new File(tempDir, "tempQuiltInMerging.jar");
             if (remappedQuiltJar.exists()) remappedQuiltJar.delete();
+            remappedQuiltJar.createNewFile();
 
             List<Relocation> quiltRelocation = new ArrayList<>();
             quiltRelocation.add(new Relocation(group, "quilt." + group));
@@ -209,21 +246,40 @@ public class Forgix {
                 file.renameTo(remappedFile);
             }
 
-            for (File file : listAllTextFiles(forgeTemps)) {
-                String text = FileUtils.readFileToString(file, Charset.defaultCharset());
-                if (!Pattern.matches("forge." + Matcher.quoteReplacement(group), text)) {
-                    String newText = text.replaceAll(Matcher.quoteReplacement(group), "forge." + group);
-                    FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
-                }
+            forgeMixins = new ArrayList<>();
+            for (File file : listAllMixins(forgeTemps, false)) {
+                File remappedFile = new File(file.getParentFile(), "forge-" + file.getName());
+                forgeRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
 
-                if (forgeRelocations != null) {
+                forgeMixins.add(remappedFile.getName());
+            }
+
+            for (File file : listAllRefmaps(forgeTemps)) {
+                File remappedFile = new File(file.getParentFile(), "forge-" + file.getName());
+                forgeRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
+            }
+
+            forgeRelocations.put(group, "forge." + group);
+            for (File file : listAllTextFiles(forgeTemps)) {
+                FileInputStream fis = new FileInputStream(file);
+                Scanner scanner = new Scanner(fis);
+                StringBuilder sb = new StringBuilder();
+
+                while (scanner.hasNext()) {
+                    String line = scanner.nextLine();
                     for (Map.Entry<String, String> entry : forgeRelocations.entrySet()) {
-                        if (!Pattern.matches(Matcher.quoteReplacement(entry.getValue()), text)) {
-                            String newText = text.replaceAll(Matcher.quoteReplacement(entry.getKey()), entry.getValue());
-                            FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
-                        }
+                        line = line.replace(entry.getKey(), entry.getValue());
                     }
+                    sb.append(line).append("\n");
                 }
+                scanner.close();
+                fis.close();
+                FileOutputStream fos = new FileOutputStream(file);
+                fos.write(sb.toString().getBytes());
+                fos.flush();
+                fos.close();
             }
         }
 
@@ -235,21 +291,37 @@ public class Forgix {
                 file.renameTo(remappedFile);
             }
 
-            for (File file : listAllTextFiles(fabricTemps)) {
-                String text = FileUtils.readFileToString(file, Charset.defaultCharset());
-                if (!Pattern.matches("fabric." + Matcher.quoteReplacement(group), text)) {
-                    String newText = text.replaceAll(Matcher.quoteReplacement(group), "fabric." + group);
-                    FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
-                }
+            for (File file : listAllMixins(fabricTemps, true)) {
+                File remappedFile = new File(file.getParentFile(), "fabric-" + file.getName());
+                fabricRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
+            }
 
-                if (fabricRelocations != null) {
+            for (File file : listAllAccessWideners(fabricTemps)) {
+                File remappedFile = new File(file.getParentFile(), "fabric-" + file.getName());
+                fabricRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
+            }
+
+            fabricRelocations.put(group, "fabric." + group);
+            for (File file : listAllTextFiles(fabricTemps)) {
+                FileInputStream fis = new FileInputStream(file);
+                Scanner scanner = new Scanner(fis);
+                StringBuilder sb = new StringBuilder();
+
+                while (scanner.hasNext()) {
+                    String line = scanner.nextLine();
                     for (Map.Entry<String, String> entry : fabricRelocations.entrySet()) {
-                        if (!Pattern.matches(Matcher.quoteReplacement(entry.getValue()), text)) {
-                            String newText = text.replaceAll(Matcher.quoteReplacement(entry.getKey()), entry.getValue());
-                            FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
-                        }
+                        line = line.replace(entry.getKey(), entry.getValue());
                     }
+                    sb.append(line).append("\n");
                 }
+                scanner.close();
+                fis.close();
+                FileOutputStream fos = new FileOutputStream(file);
+                fos.write(sb.toString().getBytes());
+                fos.flush();
+                fos.close();
             }
         }
 
@@ -261,21 +333,37 @@ public class Forgix {
                 file.renameTo(remappedFile);
             }
 
-            for (File file : listAllTextFiles(quiltTemps)) {
-                String text = FileUtils.readFileToString(file, Charset.defaultCharset());
-                if (!Pattern.matches("quilt." + Matcher.quoteReplacement(group), text)) {
-                    String newText = text.replaceAll(Matcher.quoteReplacement(group), "quilt." + group);
-                    FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
-                }
+            for (File file : listAllMixins(quiltTemps, true)) {
+                File remappedFile = new File(file.getParentFile(), "quilt-" + file.getName());
+                quiltRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
+            }
 
-                if (quiltRelocations != null) {
+            for (File file : listAllAccessWideners(quiltTemps)) {
+                File remappedFile = new File(file.getParentFile(), "quilt-" + file.getName());
+                quiltRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
+            }
+
+            quiltRelocations.put(group, "quilt." + group);
+            for (File file : listAllTextFiles(quiltTemps)) {
+                FileInputStream fis = new FileInputStream(file);
+                Scanner scanner = new Scanner(fis);
+                StringBuilder sb = new StringBuilder();
+
+                while (scanner.hasNext()) {
+                    String line = scanner.nextLine();
                     for (Map.Entry<String, String> entry : quiltRelocations.entrySet()) {
-                        if (!Pattern.matches(Matcher.quoteReplacement(entry.getValue()), text)) {
-                            String newText = text.replaceAll(Matcher.quoteReplacement(entry.getKey()), entry.getValue());
-                            FileUtils.writeStringToFile(file, newText, Charset.defaultCharset(), false);
-                        }
+                        line = line.replace(entry.getKey(), entry.getValue());
                     }
+                    sb.append(line).append("\n");
                 }
+                scanner.close();
+                fis.close();
+                FileOutputStream fos = new FileOutputStream(file);
+                fos.write(sb.toString().getBytes());
+                fos.flush();
+                fos.close();
             }
         }
     }
