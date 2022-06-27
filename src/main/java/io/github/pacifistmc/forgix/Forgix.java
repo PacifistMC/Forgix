@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
 import static io.github.pacifistmc.forgix.utils.FileUtils.*;
@@ -131,15 +133,19 @@ public class Forgix {
         }
 
         if (mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
+            System.out.println();
             System.out.println("Couldn't detect forge mixins. You can ignore this if you are not using mixins with forge.");
             System.out.println("If this is an issue then you can configure mixins manually");
             System.out.println("Though we'll try to detect them automatically.");
+            System.out.println();
         }
 
         remapResources(forgeTemps, fabricTemps, quiltTemps);
 
         if (this.forgeMixins != null && mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
+            System.out.println();
             System.out.println("Forge mixins detected: " + String.join(",", this.forgeMixins));
+            System.out.println();
             if (!forgeMixins.isEmpty()) mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.forgeMixins));
         }
 
@@ -198,6 +204,21 @@ public class Forgix {
             if (forgeRelocations != null)
                 forgeRelocation.addAll(forgeRelocations.entrySet().stream().map(entry -> new Relocation(entry.getKey(), entry.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
 
+            AtomicReference<String> architectury = new AtomicReference<>();
+            architectury.set(null);
+
+            JarFile jarFile = new JarFile(forgeJar);
+            jarFile.stream().forEach(jarEntry -> {
+                if (jarEntry.isDirectory()) {
+                    if (jarEntry.getName().startsWith("architectury_inject")) {
+                        architectury.set(jarEntry.getName());
+                    }
+                }
+            });
+            jarFile.close();
+
+            if (architectury.get() != null) forgeRelocation.add(new Relocation(architectury.get(), "forge." + architectury.get()));
+
             JarRelocator forgeRelocator = new JarRelocator(forgeJar, remappedForgeJar, forgeRelocation);
             forgeRelocator.run();
 
@@ -214,6 +235,21 @@ public class Forgix {
             if (fabricRelocations != null)
                 fabricRelocation.addAll(fabricRelocations.entrySet().stream().map(entry -> new Relocation(entry.getKey(), entry.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
 
+            AtomicReference<String> architectury = new AtomicReference<>();
+            architectury.set(null);
+
+            JarFile jarFile = new JarFile(fabricJar);
+            jarFile.stream().forEach(jarEntry -> {
+                if (jarEntry.isDirectory()) {
+                    if (jarEntry.getName().startsWith("architectury_inject")) {
+                        architectury.set(jarEntry.getName());
+                    }
+                }
+            });
+            jarFile.close();
+
+            if (architectury.get() != null) fabricRelocation.add(new Relocation(architectury.get(), "fabric." + architectury.get()));
+
             JarRelocator fabricRelocator = new JarRelocator(fabricJar, remappedFabricJar, fabricRelocation);
             fabricRelocator.run();
 
@@ -229,6 +265,20 @@ public class Forgix {
             quiltRelocation.add(new Relocation(group, "quilt." + group));
             if (quiltRelocations != null)
                 quiltRelocation.addAll(quiltRelocations.entrySet().stream().map(entry -> new Relocation(entry.getKey(), entry.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
+
+            AtomicReference<String> architectury = new AtomicReference<>();
+            architectury.set(null);
+
+            JarFile jarFile = new JarFile(quiltJar);
+            jarFile.stream().forEach(jarEntry -> {
+                if (jarEntry.isDirectory()) {
+                    if (jarEntry.getName().startsWith("architectury_inject")) {
+                        architectury.set(jarEntry.getName());
+                    }
+                }
+            });
+
+            if (architectury.get() != null) quiltRelocation.add(new Relocation(architectury.get(), "quilt." + architectury.get()));
 
             JarRelocator quiltRelocator = new JarRelocator(quiltJar, remappedQuiltJar, quiltRelocation);
             quiltRelocator.run();
