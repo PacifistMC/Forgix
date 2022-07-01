@@ -7,7 +7,7 @@ _This would probably be moved to wikis and will have a proper usage documentatio
 By default just running the task "mergeJars" should work. Though don't forget to build the jars first!
 ```groovy
 plugins {
-    id 'io.github.pacifistmc.forgix'
+    id 'io.github.pacifistmc.forgix' // Note: You still cannot use the plugin since gradle didn't accept the plugin yet :(
 }
 
 forgix {
