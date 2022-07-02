@@ -23,7 +23,7 @@ import static io.github.pacifistmc.forgix.utils.FileUtils.*;
 // This is the class that does the magic.
 @SuppressWarnings({"ResultOfMethodCallIgnored", "UnusedReturnValue", "FieldCanBeLocal"})
 public class Forgix {
-    private final String version = "1.0";
+    private final String version = "1.0.1";
 
     private File forgeJar;
     private Map<String, String> forgeRelocations;
