@@ -49,7 +49,7 @@ gradlePlugin {
 pluginBundle {
     website = 'https://github.com/PacifistMC'
     vcsUrl = 'https://github.com/PacifistMC/Forgix'
-    tags = ['forge', 'merge', 'jars', 'fabric', 'quilt', 'minecraft', 'architectury', 'forgix', 'pacifistmc']
+    tags = ['forge', 'minecraftforge', 'merge', 'jars', 'fabric', 'fabricmc', 'quilt', 'quiltmc', 'minecraft', 'architectury', 'forgix', 'pacifistmc']
 }
 
 publishing {
