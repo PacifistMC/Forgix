@@ -1,8 +1,10 @@
 # Forgix
-A Gradle plugin/an [Architectury](https://github.com/architectury) addon to merge Fabric (also Quilt) &amp; Forge jars into one! 𝘸𝘢𝘩𝘩 𝘵𝘦𝘤𝘩𝘯𝘰𝘭𝘰𝘨𝘺
+A Gradle plugin/an [Architectury](https://github.com/architectury) addon to merge [Fabric](http://fabricmc.net/) (also [Quilt](https://quiltmc.org/)) &amp; [Forge](https://files.minecraftforge.net/net/minecraftforge/forge/) jars into one! 𝘸𝘢𝘩𝘩 𝘵𝘦𝘤𝘩𝘯𝘰𝘭𝘰𝘨𝘺
 
 ## Usage:
 _This would probably be moved to wikis at some point and will have better documentation_
+#### 
+Note: You'll have to do all of these in the root build.gradle
 ### Applying the plugin:
 #### Groovy
 Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#sec:plugins_block):
@@ -96,7 +98,6 @@ forgix {
     }
 }
 ```
-Note: You'll have to do all of these in the root build.gradle
 #
 #### How did I come up with the name "Forgix"?
 Well an AI generated it for me
