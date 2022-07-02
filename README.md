@@ -1,4 +1,5 @@
-# Forgix
+![# Forgix](https://user-images.githubusercontent.com/37855219/177012300-5d402b36-3393-4cbf-9d45-d99d6800c91f.png)
+---
 A Gradle plugin/an [Architectury](https://github.com/architectury) addon to merge [Fabric](http://fabricmc.net/) (also [Quilt](https://quiltmc.org/)) &amp; [Forge](https://files.minecraftforge.net/net/minecraftforge/forge/) jars into one! 𝘸𝘢𝘩𝘩 𝘵𝘦𝘤𝘩𝘯𝘰𝘭𝘰𝘨𝘺
 
 ## Usage:
