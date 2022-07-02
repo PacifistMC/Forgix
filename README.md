@@ -1,15 +1,69 @@
 # Forgix
-A Gradle plugin/an Architectury addon to merge Fabric (also Quilt) &amp; Forge jars into one! 𝘸𝘢𝘩𝘩 𝘵𝘦𝘤𝘩𝘯𝘰𝘭𝘰𝘨𝘺
+A Gradle plugin/an [Architectury](https://github.com/architectury) addon to merge Fabric (also Quilt) &amp; Forge jars into one! 𝘸𝘢𝘩𝘩 𝘵𝘦𝘤𝘩𝘯𝘰𝘭𝘰𝘨𝘺
 
-### Usage:
-_This would probably be moved to wikis and will have a proper usage documentation after gradle accepted the plugin but for now here's a quick documentation on how to use this plugin_
-####
-By default just running the task "mergeJars" should work. Though don't forget to build the jars first!
+## Usage:
+_This would probably be moved to wikis at some point and will have better documentation_
+### Applying the plugin:
+#### Groovy
+Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#sec:plugins_block):
+
 ```groovy
 plugins {
-    id 'io.github.pacifistmc.forgix' // Note: You still cannot use the plugin since gradle didn't accept the plugin yet :(
+    id "io.github.pacifistmc.forgix" version "1.0"
+}
+```
+
+Using the [legacy plugin application](https://docs.gradle.org/current/userguide/plugins.html#sec:old_plugin_application):
+<details><summary>Click to View</summary>
+
+```groovy
+buildscript {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        classpath "io.github.pacifistmc.forgix:Forgix:1.0"
+    }
 }
 
+apply plugin: "io.github.pacifistmc.forgix"
+```
+</details>
+
+#### Kotlin
+
+Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#sec:plugins_block):
+
+```kotlin
+plugins {
+    id("io.github.pacifistmc.forgix") version "1.0"
+}
+```
+
+Using the [legacy plugin application](https://docs.gradle.org/current/userguide/plugins.html#sec:old_plugin_application):
+<details><summary>Click to View</summary>
+
+```kotlin
+buildscript {
+    repositories {
+        maven {
+            url = uri("https://plugins.gradle.org/m2/")
+        }
+    }
+    dependencies {
+        classpath("io.github.pacifistmc.forgix:Forgix:1.0")
+    }
+}
+
+apply(plugin = "io.github.pacifistmc.forgix")
+```
+</details>
+
+### Configuration:
+By default just running the task "mergeJars" should work if you've made your mod through the [Architectury Template](https://github.com/architectury/architectury-templates). Though don't forget to build the jars first!
+```groovy
 forgix {
     group = "org.example.mod" // This is the common group of the mod which by default in Architectury Template it's defined as "maven_group" in your gradle.properties. If this property is not defined then by default it'll fetch the group from the maven_group property in your gradle.properties
     mergedJarName = "example-mod" // This is the name of the merged jar. If this property is not defined then by default it'll fetch the "archives_base_name" property with the "mod_version" property in your gradle.properties.
@@ -42,7 +96,7 @@ forgix {
     }
 }
 ```
-Note: You'll have to do the configuration in the root build.gradle
+Note: You'll have to do all of these in the root build.gradle
 #
 #### How did I come up with the name "Forgix"?
 Well an AI generated it for me
