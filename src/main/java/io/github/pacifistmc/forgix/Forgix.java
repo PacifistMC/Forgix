@@ -180,13 +180,18 @@ public class Forgix {
         } catch (UnsupportedOperationException | IOException ignored) { }
 
         FileUtils.deleteQuietly(mergedTemps);
-        FileUtils.deleteQuietly(forgeTemps);
-        FileUtils.deleteQuietly(fabricTemps);
-        FileUtils.deleteQuietly(quiltTemps);
-
-        forgeJar.delete();
-        fabricJar.delete();
-        quiltJar.delete();
+        if (forgeJar != null && forgeJar.exists()) { 
+            FileUtils.deleteQuietly(forgeTemps);
+            forgeJar.delete();
+        }
+        if (fabricJar != null && fabricJar.exists()) {
+            FileUtils.deleteQuietly(fabricTemps);
+            fabricJar.delete();
+        }
+        if (quiltJar != null && quiltJar.exists()) {
+            FileUtils.deleteQuietly(quiltTemps);
+            quiltJar.delete();
+        }
 
         return mergedJar;
     }
