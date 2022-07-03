@@ -132,17 +132,16 @@ public class Forgix {
             if (!forgeMixins.isEmpty()) mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.forgeMixins));
         }
 
-        if (mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
-            logger.debug("Couldn't detect forge mixins. You can ignore this if you are not using mixins with forge.\n" +
-                    "If this is an issue then you can configure mixins manually\n" +
-                    "Though we'll try to detect them automatically.\n");
-        }
-
         remapResources(forgeTemps, fabricTemps, quiltTemps);
 
         if (this.forgeMixins != null && mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
-            logger.debug("Forge mixins detected: " + String.join(",", this.forgeMixins) + "\n");
-            if (!forgeMixins.isEmpty()) mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.forgeMixins));
+            logger.debug("Couldn't detect forge mixins. You can ignore this if you are not using mixins with forge.\n" +
+                    "If this is an issue then you can configure mixins manually\n" +
+                    "Though we'll try to detect them automatically.\n");
+            if (!forgeMixins.isEmpty()) {
+                logger.debug("Detected forge mixins: " + String.join(",", this.forgeMixins) + "\n");
+                mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.forgeMixins));
+            }
         }
 
         mergedManifest.getMainAttributes().putValue("Forgix-Version", version);
@@ -313,6 +312,7 @@ public class Forgix {
             }
 
             forgeRelocations.put(group, "forge." + group);
+            forgeRelocations.put(group.replace(".", "/"), "forge/" + group.replace(".", "/"));
             for (File file : listAllTextFiles(forgeTemps)) {
                 FileInputStream fis = new FileInputStream(file);
                 Scanner scanner = new Scanner(fis);
@@ -355,6 +355,7 @@ public class Forgix {
             }
 
             fabricRelocations.put(group, "fabric." + group);
+            fabricRelocations.put(group.replace(".", "/"), "fabric/" + group.replace(".", "/"));
             for (File file : listAllTextFiles(fabricTemps)) {
                 FileInputStream fis = new FileInputStream(file);
                 Scanner scanner = new Scanner(fis);
@@ -397,6 +398,7 @@ public class Forgix {
             }
 
             quiltRelocations.put(group, "quilt." + group);
+            quiltRelocations.put(group.replace(".", "/"), "quilt/" + group.replace(".", "/"));
             for (File file : listAllTextFiles(quiltTemps)) {
                 FileInputStream fis = new FileInputStream(file);
                 Scanner scanner = new Scanner(fis);
