@@ -70,6 +70,7 @@ By default just running the task "mergeJars" should work if you've made your mod
 forgix {
     group = "org.example.mod" // This is the common group of the mod which by default in Architectury Template it's defined as "maven_group" in your gradle.properties. If this property is not defined then by default it'll fetch the group from the maven_group property in your gradle.properties
     mergedJarName = "example-mod" // This is the name of the merged jar. If this property is not defined then by default it'll fetch the "archives_base_name" property with the "mod_version" property in your gradle.properties.
+    outputDir = "build/libs/Merged" // This is the output directory of the merged jar. If this property is not defined then by default it's set to "Merged".
     
     forge {
         projectName = "forge" // This is the name of the forge project. If this property is not defined then by default it'll set to "forge" since that's the name the Architectury Template uses.
