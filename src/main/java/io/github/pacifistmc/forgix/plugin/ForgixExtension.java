@@ -18,17 +18,17 @@ public class ForgixExtension {
         if (ForgixPlugin.rootProject.hasProperty("maven_group")) {
             group = ForgixPlugin.rootProject.property("maven_group").toString();
         } else {
-            System.out.println("No \"maven_group\" property found! Please configure group manually!");
+            ForgixPlugin.rootProject.getLogger().error("No \"maven_group\" property found! Please configure group manually!");
         }
 
         if (ForgixPlugin.rootProject.hasProperty("mod_version")) {
             if (ForgixPlugin.rootProject.hasProperty("archives_base_name")) {
                 mergedJarName = ForgixPlugin.rootProject.property("archives_base_name").toString() + "-" +ForgixPlugin.rootProject.property("mod_version").toString() + ".jar";
             } else {
-                System.out.println("No \"archives_base_name\" property found! Please configure mergedJarName manually!");
+                ForgixPlugin.rootProject.getLogger().error("No \"archives_base_name\" property found! Please configure mergedJarName manually!");
             }
         } else {
-            System.out.println("No \"mod_version\" property found! Please configure mergedJarName manually!");
+            ForgixPlugin.rootProject.getLogger().error("No \"mod_version\" property found! Please configure mergedJarName manually!");
         }
     }
 

@@ -9,7 +9,9 @@ import org.gradle.api.tasks.TaskAction;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 @SuppressWarnings({"ConstantConditions", "OptionalGetWithoutIsPresent", "ResultOfMethodCallIgnored"})
 public class MergeJarsTask extends DefaultTask {
@@ -17,7 +19,7 @@ public class MergeJarsTask extends DefaultTask {
     void mergeJars() throws IOException {
         long time = System.currentTimeMillis();
         if (ForgixPlugin.settings.mergedJarName == null || ForgixPlugin.settings.group == null) {
-            System.out.println("Please configure \"group\" and \"mergedJarName\" manually!");
+            ForgixPlugin.rootProject.getLogger().error("Please configure \"group\" and \"mergedJarName\" manually!");
             return;
         }
         ForgixExtension.ForgeContainer forgeSettings = ForgixPlugin.settings.getForgeContainer();
@@ -43,8 +45,8 @@ public class MergeJarsTask extends DefaultTask {
         } catch (NoSuchElementException ignored) { }
 
         if (validation.size() < 2) {
-            if (validation.size() == 1) System.out.println("Only one project was found. Skipping mergeJar task.");
-            if (validation.size() == 0) System.out.println("No projects were found. Skipping mergeJar task.");
+            if (validation.size() == 1) ForgixPlugin.rootProject.getLogger().error("Only one project was found. Skipping mergeJar task.");
+            if (validation.size() == 0) ForgixPlugin.rootProject.getLogger().error("No projects were found. Skipping mergeJar task.");
             return;
         }
         validation.clear();
@@ -107,7 +109,7 @@ public class MergeJarsTask extends DefaultTask {
         File mergedJar = new File(ForgixPlugin.rootProject.getRootDir(), ForgixPlugin.settings.getOutputDir() + File.separator + ForgixPlugin.settings.getMergedJarName());
         if (mergedJar.exists()) FileUtils.forceDelete(mergedJar);
         if (!mergedJar.getParentFile().exists()) mergedJar.getParentFile().mkdirs();
-        new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName()).merge().renameTo(mergedJar);
-        System.out.println("Merged jar created in " + (System.currentTimeMillis() - time) / 1000.0 + " seconds.");
+        new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName(), ForgixPlugin.rootProject.getLogger()).merge().renameTo(mergedJar);
+        ForgixPlugin.rootProject.getLogger().debug("Merged jar created in " + (System.currentTimeMillis() - time) / 1000.0 + " seconds.");
     }
 }

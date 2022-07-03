@@ -5,6 +5,7 @@ import fr.stevecohen.jarmanager.JarUnpacker;
 import me.lucko.jarrelocator.JarRelocator;
 import me.lucko.jarrelocator.Relocation;
 import org.apache.commons.io.FileUtils;
+import org.gradle.api.logging.Logger;
 
 import javax.annotation.Nullable;
 import java.io.File;
@@ -36,7 +37,9 @@ public class Forgix {
     private final File tempDir;
     private final String mergedJarName;
 
-    public Forgix(@Nullable File forgeJar, @Nullable Map<String, String> forgeRelocations, @Nullable List<String> forgeMixins, @Nullable File fabricJar, Map<String, String> fabricRelocations, @Nullable File quiltJar, Map<String, String> quiltRelocations, String group, File tempDir, String mergedJarName) {
+    private final Logger logger;
+
+    public Forgix(@Nullable File forgeJar, @Nullable Map<String, String> forgeRelocations, @Nullable List<String> forgeMixins, @Nullable File fabricJar, Map<String, String> fabricRelocations, @Nullable File quiltJar, Map<String, String> quiltRelocations, String group, File tempDir, String mergedJarName, Logger logger) {
         this.forgeJar = forgeJar;
         this.forgeRelocations = forgeRelocations;
         this.forgeMixins = forgeMixins;
@@ -47,6 +50,7 @@ public class Forgix {
         this.group = group;
         this.tempDir = tempDir;
         this.mergedJarName = mergedJarName;
+        this.logger = logger;
     }
 
     public File merge() throws IOException {
@@ -56,28 +60,24 @@ public class Forgix {
         }
 
         if (forgeJar != null && !forgeJar.exists()) {
-            System.out.println("Forge jar does not exist! You can ignore this if you are not using forge.");
-            System.out.println("You might want to change Forgix settings if something is wrong.");
+            logger.warn("Forge jar does not exist! You can ignore this if you are not using forge.\nYou might want to change Forgix settings if something is wrong.");
         }
 
         if (fabricJar != null && !fabricJar.exists()) {
-            System.out.println("Fabric jar does not exist! You can ignore this if you are not using fabric.");
-            System.out.println("You might want to change Forgix settings if something is wrong.");
+            logger.warn("Fabric jar does not exist! You can ignore this if you are not using fabric.\nYou might want to change Forgix settings if something is wrong.");
         }
 
         if (quiltJar != null && !quiltJar.exists()) {
-            System.out.println("Quilt jar does not exist! You can ignore this if you are not using quilt.");
-            System.out.println("You might want to change Forgix settings if something is wrong.");
+            logger.warn("Quilt jar does not exist! You can ignore this if you are not using quilt.\nYou might want to change Forgix settings if something is wrong.");
         }
 
-        System.out.println();
-        System.out.println("Settings:");
-        System.out.println("Forge: " + (forgeJar == null || !forgeJar.exists() ? "No" : "Yes"));
-        System.out.println("Fabric: " + (fabricJar == null || !fabricJar.exists() ? "No" : "Yes"));
-        System.out.println("Quilt: " + (quiltJar == null || !quiltJar.exists() ? "No" : "Yes"));
-        System.out.println("Group: " + group);
-        System.out.println("Merged Jar Name: " + mergedJarName);
-        System.out.println();
+        logger.info("\nSettings:\n" +
+                "Forge: " + (forgeJar == null || !forgeJar.exists() ? "No\n" : "Yes\n") +
+                "Fabric: " + (fabricJar == null || !fabricJar.exists() ? "No\n" : "Yes\n") +
+                "Quilt: " + (quiltJar == null || !quiltJar.exists() ? "No\n" : "Yes\n") +
+                "Group: " + group + "\n" +
+                "Merged Jar Name: " + mergedJarName + "\n"
+        );
 
         remap();
 
@@ -133,17 +133,15 @@ public class Forgix {
         }
 
         if (mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
-            System.out.println("Couldn't detect forge mixins. You can ignore this if you are not using mixins with forge.");
-            System.out.println("If this is an issue then you can configure mixins manually");
-            System.out.println("Though we'll try to detect them automatically.");
-            System.out.println();
+            logger.debug("Couldn't detect forge mixins. You can ignore this if you are not using mixins with forge.\n" +
+                    "If this is an issue then you can configure mixins manually\n" +
+                    "Though we'll try to detect them automatically.\n");
         }
 
         remapResources(forgeTemps, fabricTemps, quiltTemps);
 
         if (this.forgeMixins != null && mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
-            System.out.println("Forge mixins detected: " + String.join(",", this.forgeMixins));
-            System.out.println();
+            logger.debug("Forge mixins detected: " + String.join(",", this.forgeMixins) + "\n");
             if (!forgeMixins.isEmpty()) mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.forgeMixins));
         }
 
