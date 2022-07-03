@@ -24,7 +24,7 @@ import static io.github.pacifistmc.forgix.utils.FileUtils.*;
 // This is the class that does the magic.
 @SuppressWarnings({"ResultOfMethodCallIgnored", "UnusedReturnValue", "FieldCanBeLocal"})
 public class Forgix {
-    private final String version = "1.1.0";
+    private final String version = "1.1.1";
 
     private File forgeJar;
     private Map<String, String> forgeRelocations;
@@ -122,6 +122,24 @@ public class Forgix {
         forgeManifest.getMainAttributes().forEach((key, value) -> mergedManifest.getMainAttributes().putValue(key.toString(), value.toString()));
         fabricManifest.getMainAttributes().forEach((key, value) -> mergedManifest.getMainAttributes().putValue(key.toString(), value.toString()));
         quiltManifest.getMainAttributes().forEach((key, value) -> mergedManifest.getMainAttributes().putValue(key.toString(), value.toString()));
+
+        if (mergedManifest.getMainAttributes().getValue("MixinConfigs") != null) {
+            String value = mergedManifest.getMainAttributes().getValue("MixinConfigs");
+            String[] mixins;
+            List<String> remappedMixin = new ArrayList<>();
+
+            if (value.contains(",")) {
+                mixins = value.split(",");
+            } else {
+                mixins = new String[]{value};
+            }
+
+            for (String mixin : mixins) {
+                remappedMixin.add("forge-" + mixin);
+            }
+
+            mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", remappedMixin));
+        }
 
         if (this.forgeMixins != null) {
             List<String> newForgeMixins = new ArrayList<>();
