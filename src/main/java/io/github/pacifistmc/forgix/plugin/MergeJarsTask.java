@@ -2,6 +2,7 @@ package io.github.pacifistmc.forgix.plugin;
 
 import io.github.pacifistmc.forgix.Forgix;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.tasks.TaskAction;
@@ -59,9 +60,11 @@ public class MergeJarsTask extends DefaultTask {
                 int i = 0;
                 for (File file : new File(forgeProject.getBuildDir(), "libs").listFiles()) {
                     if (file.isDirectory()) continue;
-                    if (file.getName().length() < i || i == 0) {
-                        i = file.getName().length();
-                        forgeJar = file;
+                    if (FilenameUtils.getExtension(file.getName()).equals("jar")) {
+                        if (file.getName().length() < i || i == 0) {
+                            i = file.getName().length();
+                            forgeJar = file;
+                        }
                     }
                 }
             }
@@ -74,9 +77,11 @@ public class MergeJarsTask extends DefaultTask {
                 int i = 0;
                 for (File file : new File(fabricProject.getBuildDir(), "libs").listFiles()) {
                     if (file.isDirectory()) continue;
-                    if (file.getName().length() < i || i == 0) {
-                        i = file.getName().length();
-                        fabricJar = file;
+                    if (FilenameUtils.getExtension(file.getName()).equals("jar")) {
+                        if (file.getName().length() < i || i == 0) {
+                            i = file.getName().length();
+                            fabricJar = file;
+                        }
                     }
                 }
             }
@@ -89,15 +94,17 @@ public class MergeJarsTask extends DefaultTask {
                 int i = 0;
                 for (File file : new File(quiltProject.getBuildDir(), "libs").listFiles()) {
                     if (file.isDirectory()) continue;
-                    if (file.getName().length() < i || i == 0) {
-                        i = file.getName().length();
-                        quiltJar = file;
+                    if (FilenameUtils.getExtension(file.getName()).equals("jar")) {
+                        if (file.getName().length() < i || i == 0) {
+                            i = file.getName().length();
+                            quiltJar = file;
+                        }
                     }
                 }
             }
         }
 
-        File mergedJar = new File(ForgixPlugin.rootProject.getRootDir(), "Merged" + File.separator + ForgixPlugin.settings.getMergedJarName());
+        File mergedJar = new File(ForgixPlugin.rootProject.getRootDir(), ForgixPlugin.settings.getOutputDir() + File.separator + ForgixPlugin.settings.getMergedJarName());
         if (mergedJar.exists()) FileUtils.forceDelete(mergedJar);
         if (!mergedJar.getParentFile().exists()) mergedJar.getParentFile().mkdirs();
         new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName()).merge().renameTo(mergedJar);

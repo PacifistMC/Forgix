@@ -12,6 +12,8 @@ public class ForgixExtension {
     String group;
     String mergedJarName;
 
+    String outputDir = "Merged";
+
     public ForgixExtension() {
         if (ForgixPlugin.rootProject.hasProperty("maven_group")) {
             group = ForgixPlugin.rootProject.property("maven_group").toString();
@@ -45,6 +47,14 @@ public class ForgixExtension {
     public void setMergedJarName(String mergedJarName) {
         if (!FilenameUtils.isExtension(mergedJarName)) mergedJarName = mergedJarName + FilenameUtils.EXTENSION_SEPARATOR_STR + "jar";
         this.mergedJarName = mergedJarName;
+    }
+
+    public String getOutputDir() {
+        return outputDir;
+    }
+
+    public void setOutputDir(String outputDir) {
+        this.outputDir = outputDir;
     }
 
     ForgeContainer forgeContainer;
