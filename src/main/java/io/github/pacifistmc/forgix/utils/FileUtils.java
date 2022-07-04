@@ -14,8 +14,18 @@ public class FileUtils {
     public static List<File> manifestJars(File dir) {
         List<File> jars = new ArrayList<>();
         File jarsLocation = new File(dir, "META-INF/jars");
+        File jarJarLocation = new File(dir, "META-INF/jarjar");
         if (jarsLocation.exists()) {
-            File[] list = dir.listFiles();
+            File[] list = jarsLocation.listFiles();
+            if (list == null) return jars;
+            for (File jar : list) {
+                if (FilenameUtils.getExtension(jar.getName()).equals("jar")) {
+                    jars.add(jar);
+                }
+            }
+        }
+        if (jarJarLocation.exists()) {
+            File[] list = jarJarLocation.listFiles();
             if (list == null) return jars;
             for (File jar : list) {
                 if (FilenameUtils.getExtension(jar.getName()).equals("jar")) {
