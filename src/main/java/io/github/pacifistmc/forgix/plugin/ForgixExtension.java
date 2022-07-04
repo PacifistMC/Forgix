@@ -20,6 +20,7 @@ public class ForgixExtension {
                 group = ForgixPlugin.rootProject.property("maven_group").toString();
             } else {
                 ForgixPlugin.rootProject.getLogger().error("No \"maven_group\" property found! Please configure group manually!");
+                ForgixPlugin.rootProject.getLogger().info("Check out on how to configure \"group\": " + "https://github.com/PacifistMC/Forgix#configuration");
             }
         }
 
@@ -29,9 +30,11 @@ public class ForgixExtension {
                     mergedJarName = ForgixPlugin.rootProject.property("archives_base_name").toString() + "-" + ForgixPlugin.rootProject.property("mod_version").toString() + ".jar";
                 } else {
                     ForgixPlugin.rootProject.getLogger().error("No \"archives_base_name\" property found! Please configure mergedJarName manually!");
+                    ForgixPlugin.rootProject.getLogger().info("Check out on how to configure \"mergedJarName\": " + "https://github.com/PacifistMC/Forgix#configuration");
                 }
             } else {
                 ForgixPlugin.rootProject.getLogger().error("No \"mod_version\" property found! Please configure mergedJarName manually!");
+                ForgixPlugin.rootProject.getLogger().info("Check out on how to configure \"mergedJarName\": " + "https://github.com/PacifistMC/Forgix#configuration");
             }
         }
     }

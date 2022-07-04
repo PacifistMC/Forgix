@@ -20,6 +20,7 @@ public class MergeJarsTask extends DefaultTask {
         long time = System.currentTimeMillis();
         if (ForgixPlugin.settings.mergedJarName == null || ForgixPlugin.settings.group == null) {
             ForgixPlugin.rootProject.getLogger().error("Please configure \"group\" and \"mergedJarName\" manually!");
+            ForgixPlugin.rootProject.getLogger().info("Check out how to configure them here: " + "https://github.com/PacifistMC/Forgix#configuration");
             return;
         }
         ForgixExtension.ForgeContainer forgeSettings = ForgixPlugin.settings.getForgeContainer();

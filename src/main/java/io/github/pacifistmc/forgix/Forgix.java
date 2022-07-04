@@ -71,6 +71,8 @@ public class Forgix {
             logger.warn("Quilt jar does not exist! You can ignore this if you are not using quilt.\nYou might want to change Forgix settings if something is wrong.");
         }
 
+        logger.info("\nForgix is still very new so refer any issues that you might encounter to\n" + "https://github.com/PacifistMC/Forgix/issues");
+
         logger.info("\nSettings:\n" +
                 "Forge: " + (forgeJar == null || !forgeJar.exists() ? "No\n" : "Yes\n") +
                 "Fabric: " + (fabricJar == null || !fabricJar.exists() ? "No\n" : "Yes\n") +
