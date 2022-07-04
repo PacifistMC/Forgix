@@ -2,6 +2,7 @@
 ---
 A Gradle plugin/an [Architectury](https://github.com/architectury) addon to merge [Fabric](http://fabricmc.net/) (also [Quilt](https://quiltmc.org/)) &amp; [Forge](https://files.minecraftforge.net/net/minecraftforge/forge/) jars into one! 𝘸𝘢𝘩𝘩 𝘵𝘦𝘤𝘩𝘯𝘰𝘭𝘰𝘨𝘺
 
+#### Note: Forgix should work without Architectury as long as you provide where to get the jars and such 
 ## Usage:
 _This would probably be moved to wikis at some point and will have better documentation_
 #### 
