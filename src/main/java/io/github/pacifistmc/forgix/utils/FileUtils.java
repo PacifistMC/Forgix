@@ -18,7 +18,7 @@ public class FileUtils {
             File[] list = dir.listFiles();
             if (list == null) return jars;
             for (File jar : list) {
-                if (jar.getName().endsWith(".jar")) {
+                if (FilenameUtils.getExtension(jar.getName()).equals("jar")) {
                     jars.add(jar);
                 }
             }
