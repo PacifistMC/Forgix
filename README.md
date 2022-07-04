@@ -6,7 +6,7 @@ A Gradle plugin/an [Architectury](https://github.com/architectury) addon to merg
 ## Usage:
 _This would probably be moved to wikis at some point and will have better documentation_
 #### 
-Note: You'll have to do all of these in the root build.gradle
+#### Note: You'll have to do all of these in the root build.gradle
 ### Applying the plugin:
 #### Groovy
 Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#sec:plugins_block):
