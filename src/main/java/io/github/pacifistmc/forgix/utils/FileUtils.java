@@ -17,19 +17,21 @@ public class FileUtils {
         File jarJarLocation = new File(dir, "META-INF/jarjar");
         if (jarsLocation.exists()) {
             File[] list = jarsLocation.listFiles();
-            if (list == null) return jars;
-            for (File jar : list) {
-                if (FilenameUtils.getExtension(jar.getName()).equals("jar")) {
-                    jars.add(jar);
+            if (list != null) {
+                for (File jar : list) {
+                    if (FilenameUtils.getExtension(jar.getName()).equals("jar")) {
+                        jars.add(jar);
+                    }
                 }
             }
         }
         if (jarJarLocation.exists()) {
             File[] list = jarJarLocation.listFiles();
-            if (list == null) return jars;
-            for (File jar : list) {
-                if (FilenameUtils.getExtension(jar.getName()).equals("jar")) {
-                    jars.add(jar);
+            if (list != null) {
+                for (File jar : list) {
+                    if (FilenameUtils.getExtension(jar.getName()).equals("jar")) {
+                        jars.add(jar);
+                    }
                 }
             }
         }
