@@ -194,7 +194,7 @@ public class Forgix {
             perms.add(PosixFilePermission.GROUP_WRITE);
             perms.add(PosixFilePermission.GROUP_READ);
             Files.setPosixFilePermissions(mergedJar.toPath(), perms);
-        } catch (UnsupportedOperationException | IOException ignored) { }
+        } catch (UnsupportedOperationException | IOException | SecurityException ignored) { }
 
         FileUtils.deleteQuietly(mergedTemps);
         if (forgeJar != null && forgeJar.exists()) { 
