@@ -102,6 +102,9 @@ forgix {
 }
 ```
 #
+### What happened to DHJarMerger?
+Well [DHJarMerger](https://github.com/Ran-helo/DHJarMerger) was hard coded for the [Distant Horizons](https://www.curseforge.com/minecraft/mc-mods/distant-horizons) mod and was never really meant for the public. Forgix on the other hand is meant for the public and a lot better since I actually know what I am doing this time, it also has support for lots of other features and is just better in every way.
+###
 #### How did I come up with the name "Forgix"?
 Well an AI generated it for me
 _and also gave me the logo for it_
