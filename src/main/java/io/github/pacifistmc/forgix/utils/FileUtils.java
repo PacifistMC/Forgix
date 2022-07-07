@@ -11,6 +11,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FileUtils {
+    /**
+     * This is the method that lists all the manifestJars
+     * @param dir That contains the META-INF folder
+     * @return A list of all the manifestJars
+     */
     public static List<File> manifestJars(File dir) {
         List<File> jars = new ArrayList<>();
         File jarsLocation = new File(dir, "META-INF/jars");
@@ -38,6 +43,10 @@ public class FileUtils {
         return jars;
     }
 
+    /**
+     * @param dir That should contain the META-INF directory
+     * @return The META-INF directory
+     */
     @SuppressWarnings("ResultOfMethodCallIgnored")
     public static File metaInf(File dir) {
         File meta = new File(dir, "META-INF");
@@ -45,6 +54,10 @@ public class FileUtils {
         return meta;
     }
 
+    /**
+     * This method lists all text files recursively that aren't binary files
+     * @return List of all text files
+     */
     public static List<File> listAllTextFiles(File dir) {
         List<File> files = new ArrayList<>();
         File[] list = dir.listFiles();
@@ -61,6 +74,12 @@ public class FileUtils {
         return files;
     }
 
+    /**
+     * This method returns all the mixins recursively
+     * @param refmaps If true it also returns all the refmaps
+     * @return List of all mixins
+     * @throws IOException If something went wrong
+     */
     public static List<File> listAllMixins(File dir, boolean refmaps) throws IOException {
         List<File> files = listAllTextFiles(dir);
         List<File> mixins = new ArrayList<>();
@@ -84,6 +103,11 @@ public class FileUtils {
         return mixins;
     }
 
+    /**
+     * This method returns all the mixin refmaps recursively
+     * @return A list of all the refmaps
+     * @throws IOException If something went wrong
+     */
     public static List<File> listAllRefmaps(File dir) throws IOException {
         List<File> files = listAllTextFiles(dir);
         List<File> refmaps = new ArrayList<>();
@@ -100,6 +124,11 @@ public class FileUtils {
         return refmaps;
     }
 
+    /**
+     * This method returns all the accesswideners recursively
+     * @return A list of all the accesswideners
+     * @throws IOException
+     */
     public static List<File> listAllAccessWideners(File dir) throws IOException {
         List<File> files = listAllTextFiles(dir);
         List<File> wideners = new ArrayList<>();
@@ -119,6 +148,11 @@ public class FileUtils {
         return wideners;
     }
 
+    /**
+     * This method checks if the file is a binary file or a text file
+     * @param file to check if it's a binary file or text file
+     * @return If it's a binary file
+     */
     private static boolean isBinary(File file) {
         try {
             BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
@@ -134,6 +168,10 @@ public class FileUtils {
         }
     }
 
+    /**
+     * This method returns true if the character is a magic character that's used in binary files
+     * @return If it's a magic character
+     */
     private static boolean isMagicCharacter(int decimal) {
 //        if (decimal > 127) return true;
 //        if (decimal < 37) {

@@ -53,6 +53,12 @@ public class Forgix {
         this.logger = logger;
     }
 
+    /**
+     * This is the main merge method
+     *
+     * @return The merged jar file
+     * @throws IOException If something went wrong
+     */
     public File merge() throws IOException {
         tempDir.mkdirs();
         if (forgeJar == null && fabricJar == null && quiltJar == null) {
@@ -213,6 +219,12 @@ public class Forgix {
         return mergedJar;
     }
 
+    /**
+     * This is the method that remaps the bytecode
+     * We do this remapping in order to not get any conflicts
+     *
+     * @throws IOException If something went wrong
+     */
     private void remap() throws IOException {
         if (forgeJar != null && forgeJar.exists()) {
             File remappedForgeJar = new File(tempDir, "tempForgeInMerging.jar");
@@ -307,6 +319,16 @@ public class Forgix {
         }
     }
 
+    /**
+     * This is the second remapping method
+     * This basically remaps all resources such as mixins, manifestJars, etc.
+     * This method also finds all the forge mixins for you if not detected
+     *
+     * @param forgeTemps The extracted forge jar directory
+     * @param fabricTemps The extracted fabric jar directory
+     * @param quiltTemps The extracted quilt jar directory
+     * @throws IOException If something went wrong
+     */
     private void remapResources(File forgeTemps, File fabricTemps, File quiltTemps) throws IOException {
         if (forgeRelocations == null) forgeRelocations = new HashMap<>();
         if (forgeJar != null && forgeJar.exists()) {
