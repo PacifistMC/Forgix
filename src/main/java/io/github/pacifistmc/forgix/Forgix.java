@@ -25,6 +25,20 @@ import static io.github.pacifistmc.forgix.utils.FileUtils.*;
 @SuppressWarnings({"ResultOfMethodCallIgnored", "UnusedReturnValue", "FieldCanBeLocal"})
 public class Forgix {
     private final String version = "1.1.2";
+    public static Set<PosixFilePermission> perms;
+
+    static {
+        perms = new HashSet<>();
+        perms.add(PosixFilePermission.OTHERS_EXECUTE);
+        perms.add(PosixFilePermission.OTHERS_WRITE);
+        perms.add(PosixFilePermission.OTHERS_READ);
+        perms.add(PosixFilePermission.OWNER_EXECUTE);
+        perms.add(PosixFilePermission.OWNER_WRITE);
+        perms.add(PosixFilePermission.OWNER_READ);
+        perms.add(PosixFilePermission.GROUP_EXECUTE);
+        perms.add(PosixFilePermission.GROUP_WRITE);
+        perms.add(PosixFilePermission.GROUP_READ);
+    }
 
     private File forgeJar;
     private Map<String, String> forgeRelocations;
@@ -189,16 +203,6 @@ public class Forgix {
         jarPacker.pack(mergedTemps.getAbsolutePath(), mergedJar.getAbsolutePath());
 
         try {
-            Set<PosixFilePermission> perms = new HashSet<>();
-            perms.add(PosixFilePermission.OTHERS_EXECUTE);
-            perms.add(PosixFilePermission.OTHERS_WRITE);
-            perms.add(PosixFilePermission.OTHERS_READ);
-            perms.add(PosixFilePermission.OWNER_EXECUTE);
-            perms.add(PosixFilePermission.OWNER_WRITE);
-            perms.add(PosixFilePermission.OWNER_READ);
-            perms.add(PosixFilePermission.GROUP_EXECUTE);
-            perms.add(PosixFilePermission.GROUP_WRITE);
-            perms.add(PosixFilePermission.GROUP_READ);
             Files.setPosixFilePermissions(mergedJar.toPath(), perms);
         } catch (UnsupportedOperationException | IOException | SecurityException ignored) { }
 
