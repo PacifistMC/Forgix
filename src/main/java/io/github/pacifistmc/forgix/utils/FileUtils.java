@@ -18,8 +18,9 @@ public class FileUtils {
      */
     public static List<File> manifestJars(File dir) {
         List<File> jars = new ArrayList<>();
-        File jarsLocation = new File(dir, "META-INF/jars");
-        File jarJarLocation = new File(dir, "META-INF/jarjar");
+        File metaInf = new File(dir, "META-INF");
+        File jarsLocation = new File(metaInf, "jars");
+        File jarJarLocation = new File(metaInf, "jarjar");
         if (jarsLocation.exists()) {
             File[] list = jarsLocation.listFiles();
             if (list != null) {
@@ -127,7 +128,7 @@ public class FileUtils {
     /**
      * This method returns all the accesswideners recursively
      * @return A list of all the accesswideners
-     * @throws IOException
+     * @throws IOException If something went wrong
      */
     public static List<File> listAllAccessWideners(File dir) throws IOException {
         List<File> files = listAllTextFiles(dir);
