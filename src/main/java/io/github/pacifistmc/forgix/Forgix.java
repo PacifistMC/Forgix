@@ -5,6 +5,7 @@ import fr.stevecohen.jarmanager.JarUnpacker;
 import me.lucko.jarrelocator.JarRelocator;
 import me.lucko.jarrelocator.Relocation;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.gradle.api.logging.Logger;
 
 import javax.annotation.Nullable;
@@ -249,6 +250,11 @@ public class Forgix {
                     if (jarEntry.getName().startsWith("architectury_inject")) {
                         architectury.set(jarEntry.getName());
                     }
+                } else {
+                    String firstDirectory = getFirstDirectory(jarEntry.getName());
+                    if (firstDirectory.startsWith("architectury_inject")) {
+                        architectury.set(firstDirectory);
+                    }
                 }
             });
             jarFile.close();
@@ -280,6 +286,11 @@ public class Forgix {
                     if (jarEntry.getName().startsWith("architectury_inject")) {
                         architectury.set(jarEntry.getName());
                     }
+                } else {
+                    String firstDirectory = getFirstDirectory(jarEntry.getName());
+                    if (firstDirectory.startsWith("architectury_inject")) {
+                        architectury.set(firstDirectory);
+                    }
                 }
             });
             jarFile.close();
@@ -310,6 +321,11 @@ public class Forgix {
                 if (jarEntry.isDirectory()) {
                     if (jarEntry.getName().startsWith("architectury_inject")) {
                         architectury.set(jarEntry.getName());
+                    }
+                } else {
+                    String firstDirectory = getFirstDirectory(jarEntry.getName());
+                    if (firstDirectory.startsWith("architectury_inject")) {
+                        architectury.set(firstDirectory);
                     }
                 }
             });

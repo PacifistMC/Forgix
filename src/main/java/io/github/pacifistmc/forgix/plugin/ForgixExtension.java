@@ -52,7 +52,7 @@ public class ForgixExtension {
     }
 
     public void setMergedJarName(String mergedJarName) {
-        if (!FilenameUtils.isExtension(mergedJarName)) mergedJarName = mergedJarName + FilenameUtils.EXTENSION_SEPARATOR_STR + "jar";
+        if (FilenameUtils.isExtension(mergedJarName)) mergedJarName = mergedJarName + FilenameUtils.EXTENSION_SEPARATOR_STR + "jar";
         this.mergedJarName = mergedJarName;
     }
 

@@ -150,6 +150,21 @@ public class FileUtils {
     }
 
     /**
+     * @return The first directory in the fileName
+     */
+    public static String getFirstDirectory(String fileName) {
+        int end = fileName.indexOf(File.separator);
+        if (end != -1) {
+            return fileName.substring(0, end);
+        }
+        end = fileName.indexOf("/");
+        if (end != -1) {
+            return fileName.substring(0, end);
+        }
+        return "";
+    }
+
+    /**
      * This method checks if the file is a binary file or a text file
      * @param file to check if it's a binary file or text file
      * @return If it's a binary file
