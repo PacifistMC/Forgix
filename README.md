@@ -13,7 +13,7 @@ Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#s
 
 ```groovy
 plugins {
-    id "io.github.pacifistmc.forgix" version "1.1.3"
+    id "io.github.pacifistmc.forgix" version "1.2.0"
 }
 ```
 
@@ -28,7 +28,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath "io.github.pacifistmc.forgix:Forgix:1.1.3"
+        classpath "io.github.pacifistmc.forgix:Forgix:1.2.0"
     }
 }
 
@@ -42,7 +42,7 @@ Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#s
 
 ```kotlin
 plugins {
-    id("io.github.pacifistmc.forgix") version "1.1.3"
+    id("io.github.pacifistmc.forgix") version "1.2.0"
 }
 ```
 
@@ -57,7 +57,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath("io.github.pacifistmc.forgix:Forgix:1.1.3")
+        classpath("io.github.pacifistmc.forgix:Forgix:1.2.0")
     }
 }
 
@@ -98,6 +98,23 @@ forgix {
         
         additionalRelocate "org.my.lib" "quilt.org.my.lib" // This is an important one to know. This is how you can remap additional packages such as libraries and stuff.
         additionalRelocate "org.my.lib.another" "quilt.org.my.lib.another"
+    }
+
+    // For "custom", the "projectName" is a required value.
+    custom {
+        projectName = "sponge" // This is the name of the project. This is a required field.
+        jarLocation = "build/libs/example-mod.jar" // This is the location of the jar from the project. If this property is not defined then by default it fetches the jar with the shortest name.
+        
+        additionalRelocate "org.my.lib" "sponge.org.my.lib" // This is an important one to know. This is how you can remap additional packages such as libraries and stuff.
+        additionalRelocate "org.my.lib.another" "sponge.org.my.lib.another"
+    }
+
+    custom {
+        projectName = "spigot" // This is the name of the project. This is a required field.
+        jarLocation = "build/libs/example-mod.jar" // This is the location of the jar from the project. If this property is not defined then by default it fetches the jar with the shortest name.
+
+        additionalRelocate "org.my.lib" "spigot.org.my.lib" // This is an important one to know. This is how you can remap additional packages such as libraries and stuff.
+        additionalRelocate "org.my.lib.another" "spigot.org.my.lib.another"
     }
 }
 ```
