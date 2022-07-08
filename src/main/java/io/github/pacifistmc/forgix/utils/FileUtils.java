@@ -2,10 +2,7 @@ package io.github.pacifistmc.forgix.utils;
 
 import org.apache.commons.io.FilenameUtils;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -165,19 +162,41 @@ public class FileUtils {
     }
 
     /**
+     * @param file To check
+     * @return If the file is a zip file
+     */
+    public static boolean isZipFile(File file) {
+        try {
+            if (file.isDirectory()) return false;
+            byte[] bytes = new byte[4];
+            FileInputStream fis = new FileInputStream(file);
+            if (fis.read(bytes) != 4) {
+                return false;
+            }
+            fis.close();
+            final int header = bytes[0] + (bytes[1] << 8) + (bytes[2] << 16) + (bytes[3] << 24);
+            return 0x04034b50 == header;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
      * This method checks if the file is a binary file or a text file
      * @param file to check if it's a binary file or text file
      * @return If it's a binary file
      */
     private static boolean isBinary(File file) {
         try {
-            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+            FileInputStream fis;
+            BufferedInputStream bis = new BufferedInputStream(fis = new FileInputStream(file));
             int read = bis.read();
             while (read != -1) {
                 if (isMagicCharacter(read)) return true;
                 read = bis.read();
             }
             bis.close();
+            fis.close();
             return false;
         } catch (IOException exception) {
             return false;
