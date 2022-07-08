@@ -11,9 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 @SuppressWarnings({"ConstantConditions", "OptionalGetWithoutIsPresent", "ResultOfMethodCallIgnored"})
 public class MergeJarsTask extends DefaultTask {
@@ -29,23 +27,34 @@ public class MergeJarsTask extends DefaultTask {
         ForgixExtension.FabricContainer fabricSettings = ForgixPlugin.settings.getFabricContainer();
         ForgixExtension.QuiltContainer quiltSettings = ForgixPlugin.settings.getQuiltContainer();
 
+        List<ForgixExtension.CustomContainer> customSettingsList = ForgixPlugin.settings.getCustomContainers();
+
         Project forgeProject = null;
         Project fabricProject = null;
         Project quiltProject = null;
 
+        Map<Project, ForgixExtension.CustomContainer> customProjects = new HashMap<>();
+
         List<Boolean> validation = new ArrayList<>();
         try {
-            forgeProject = ForgixPlugin.rootProject.getSubprojects().stream().filter(p -> p.getName().equals(forgeSettings.getProjectName())).findFirst().get();
+            forgeProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equals(forgeSettings.getProjectName())).findFirst().get();
             validation.add(true);
         } catch (NoSuchElementException ignored) { }
         try {
-            fabricProject = ForgixPlugin.rootProject.getSubprojects().stream().filter(p -> p.getName().equals(fabricSettings.getProjectName())).findFirst().get();
+            fabricProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equals(fabricSettings.getProjectName())).findFirst().get();
             validation.add(true);
         } catch (NoSuchElementException ignored) { }
         try {
-            quiltProject = ForgixPlugin.rootProject.getSubprojects().stream().filter(p -> p.getName().equals(quiltSettings.getProjectName())).findFirst().get();
+            quiltProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equals(quiltSettings.getProjectName())).findFirst().get();
             validation.add(true);
         } catch (NoSuchElementException ignored) { }
+
+        for (ForgixExtension.CustomContainer customSettings : customSettingsList) {
+            try {
+                customProjects.put(ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equals(customSettings.getProjectName())).findFirst().get(), customSettings);
+                validation.add(true);
+            } catch (NoSuchElementException ignored) { }
+        }
 
         if (validation.size() < 2) {
             if (validation.size() == 1) ForgixPlugin.rootProject.getLogger().error("Only one project was found. Skipping mergeJar task.");
@@ -57,6 +66,8 @@ public class MergeJarsTask extends DefaultTask {
         File forgeJar = null;
         File fabricJar = null;
         File quiltJar = null;
+
+        Map<ForgixExtension.CustomContainer, File> customJars = new HashMap<>();
 
         if (forgeProject != null) {
             if (forgeSettings.getJarLocation() != null) {
@@ -109,11 +120,28 @@ public class MergeJarsTask extends DefaultTask {
             }
         }
 
+        for (Map.Entry<Project, ForgixExtension.CustomContainer> entry : customProjects.entrySet()) {
+            if (entry.getValue().getJarLocation() != null) {
+                customJars.put(entry.getValue(), new File(entry.getKey().getProjectDir(), entry.getValue().getJarLocation()));
+            } else {
+                int i = 0;
+                for (File file : new File(entry.getKey().getBuildDir(), "libs").listFiles()) {
+                    if (file.isDirectory()) continue;
+                    if (FilenameUtils.getExtension(file.getName()).equals("jar")) {
+                        if (file.getName().length() < i || i == 0) {
+                            i = file.getName().length();
+                            customJars.put(entry.getValue(), file);
+                        }
+                    }
+                }
+            }
+        }
+
         File mergedJar = new File(ForgixPlugin.rootProject.getRootDir(), ForgixPlugin.settings.getOutputDir() + File.separator + ForgixPlugin.settings.getMergedJarName());
         if (mergedJar.exists()) FileUtils.forceDelete(mergedJar);
         if (!mergedJar.getParentFile().exists()) mergedJar.getParentFile().mkdirs();
 
-        Path tempMergedJarPath = new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName(), ForgixPlugin.rootProject.getLogger()).merge().toPath();
+        Path tempMergedJarPath = new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), customJars, ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName(), ForgixPlugin.rootProject.getLogger()).merge().toPath();
         Files.move(tempMergedJarPath, mergedJar.toPath());
         try {
             Files.setPosixFilePermissions(mergedJar.toPath(), Forgix.perms);

@@ -3,6 +3,7 @@ package io.github.pacifistmc.forgix.plugin;
 import groovy.lang.Closure;
 import org.apache.commons.io.FilenameUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -115,6 +116,23 @@ public class ForgixExtension {
         return quiltContainer;
     }
 
+    List<CustomContainer> customContainers = new ArrayList<>();
+
+    public CustomContainer custom(Closure<CustomContainer> closure) {
+        CustomContainer customContainer = new CustomContainer();
+        ForgixPlugin.rootProject.configure(customContainer, closure);
+        if (customContainer.getProjectName() == null) {
+            throw new IllegalStateException("For the custom loader you have to specify the \"projectName\"!\n" +
+                    "Check out on how to configure \"projectName\": " + "https://github.com/PacifistMC/Forgix#configuration");
+        }
+        customContainers.add(customContainer);
+        return customContainer;
+    }
+
+    public List<CustomContainer> getCustomContainers() {
+        return customContainers;
+    }
+
     @SuppressWarnings("InnerClassMayBeStatic")
     public class ForgeContainer {
         String projectName = "forge";
@@ -213,6 +231,42 @@ public class ForgixExtension {
 
         public Map<String, String> getAdditionalRelocates() {
             return additionalRelocates;
+        }
+
+        public void additionalRelocate(String from, String to) {
+            if (this.additionalRelocates == null) this.additionalRelocates = new java.util.HashMap<>();
+            this.additionalRelocates.put(from, to);
+        }
+    }
+
+    @SuppressWarnings("InnerClassMayBeStatic")
+    public class CustomContainer {
+        String projectName;
+        String jarLocation;
+        Map<String, String> additionalRelocates;
+
+        public String getProjectName() {
+            return projectName;
+        }
+
+        public void setProjectName(String projectName) {
+            this.projectName = projectName;
+        }
+
+        public String getJarLocation() {
+            return jarLocation;
+        }
+
+        public void setJarLocation(String jarLocation) {
+            this.jarLocation = jarLocation;
+        }
+
+        public Map<String, String> getAdditionalRelocates() {
+            return additionalRelocates;
+        }
+
+        public void _setAdditionalRelocates(Map<String, String> additionalRelocates) {
+            this.additionalRelocates = additionalRelocates;
         }
 
         public void additionalRelocate(String from, String to) {
