@@ -80,7 +80,7 @@ public class Forgix {
      */
     public File merge() throws IOException {
         tempDir.mkdirs();
-        if (forgeJar == null && fabricJar == null && quiltJar == null) {
+        if (forgeJar == null && fabricJar == null && quiltJar == null && customContainerMap.isEmpty()) {
             throw new IllegalArgumentException("No jars were provided.");
         }
 
