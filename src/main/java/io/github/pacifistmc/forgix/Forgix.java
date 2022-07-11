@@ -465,6 +465,12 @@ public class Forgix {
                 file.renameTo(remappedFile);
             }
 
+            for (File file : listAllPlatformServices(forgeTemps, group)) {
+                File remappedFile = new File(file.getParentFile(), "forge." + file.getName());
+                forgeRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
+            }
+
             forgeMixins = new ArrayList<>();
             for (File file : listAllMixins(forgeTemps, false)) {
                 File remappedFile = new File(file.getParentFile(), "forge-" + file.getName());
@@ -511,6 +517,12 @@ public class Forgix {
                 file.renameTo(remappedFile);
             }
 
+            for (File file : listAllPlatformServices(fabricTemps, group)) {
+                File remappedFile = new File(file.getParentFile(), "fabric." + file.getName());
+                fabricRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
+            }
+
             for (File file : listAllMixins(fabricTemps, true)) {
                 File remappedFile = new File(file.getParentFile(), "fabric-" + file.getName());
                 fabricRelocations.put(file.getName(), remappedFile.getName());
@@ -550,6 +562,12 @@ public class Forgix {
         if (quiltJar != null && quiltJar.exists()) {
             for (File file : manifestJars(quiltTemps)) {
                 File remappedFile = new File(file.getParentFile(), "quilt-" + file.getName());
+                quiltRelocations.put(file.getName(), remappedFile.getName());
+                file.renameTo(remappedFile);
+            }
+
+            for (File file : listAllPlatformServices(quiltTemps, group)) {
+                File remappedFile = new File(file.getParentFile(), "quilt." + file.getName());
                 quiltRelocations.put(file.getName(), remappedFile.getName());
                 file.renameTo(remappedFile);
             }
@@ -598,6 +616,12 @@ public class Forgix {
 
                     for (File file : manifestJars(customTemps)) {
                         File remappedFile = new File(file.getParentFile(), name + "-" + file.getName());
+                        entry.getKey().getAdditionalRelocates().put(file.getName(), remappedFile.getName());
+                        file.renameTo(remappedFile);
+                    }
+
+                    for (File file : listAllPlatformServices(customTemps, group)) {
+                        File remappedFile = new File(file.getParentFile(), name + "." + file.getName());
                         entry.getKey().getAdditionalRelocates().put(file.getName(), remappedFile.getName());
                         file.renameTo(remappedFile);
                     }

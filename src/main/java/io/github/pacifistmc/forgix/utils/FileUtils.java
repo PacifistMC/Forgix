@@ -146,6 +146,26 @@ public class FileUtils {
         return wideners;
     }
 
+    public static List<File> listAllPlatformServices(File dir, String group) {
+        List<File> services = new ArrayList<>();
+
+        File metaInf = new File(dir, "META-INF");
+        File servicesLocation = new File(metaInf, "services");
+
+        if (servicesLocation.exists()) {
+            File[] list = servicesLocation.listFiles();
+            if (list != null) {
+                for (File service : list) {
+                    if (FilenameUtils.getBaseName(service.getName()).contains(group)) {
+                        services.add(service);
+                    }
+                }
+            }
+        }
+
+        return services;
+    }
+
     /**
      * @return The first directory in the fileName
      */
