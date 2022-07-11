@@ -13,7 +13,7 @@ Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#s
 
 ```groovy
 plugins {
-    id "io.github.pacifistmc.forgix" version "1.2.1"
+    id "io.github.pacifistmc.forgix" version "1.2.2"
 }
 ```
 
@@ -28,7 +28,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath "io.github.pacifistmc.forgix:Forgix:1.2.1"
+        classpath "io.github.pacifistmc.forgix:Forgix:1.2.2"
     }
 }
 
@@ -42,7 +42,7 @@ Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#s
 
 ```kotlin
 plugins {
-    id("io.github.pacifistmc.forgix") version "1.2.1"
+    id("io.github.pacifistmc.forgix") version "1.2.2"
 }
 ```
 
@@ -57,7 +57,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath("io.github.pacifistmc.forgix:Forgix:1.2.1")
+        classpath("io.github.pacifistmc.forgix:Forgix:1.2.2")
     }
 }
 

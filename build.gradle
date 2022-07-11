@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'io.github.pacifistmc.forgix'
-version '1.2.1' // Make sure to change the version number in io.github.pacifistmc.forgix.Forgix
+version '1.2.2' // Make sure to change the version number in io.github.pacifistmc.forgix.Forgix
 
 configurations {
     shadowMe
