@@ -6,6 +6,7 @@ import java.io.*;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 
 public class FileUtils {
     /**
@@ -137,10 +138,15 @@ public class FileUtils {
                 continue;
             }
 
-            String text = org.apache.commons.io.FileUtils.readFileToString(file, Charset.defaultCharset());
-            if (text.startsWith("accessWidener")) {
-                wideners.add(file);
+            FileInputStream fis = new FileInputStream(file);
+            Scanner scanner = new Scanner(fis);
+            if (scanner.hasNext()) {
+                if (scanner.nextLine().startsWith("accessWidener")) {
+                    wideners.add(file);
+                }
             }
+            scanner.close();
+            fis.close();
         }
 
         return wideners;

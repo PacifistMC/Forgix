@@ -36,15 +36,15 @@ public class MergeJarsTask extends DefaultTask {
 
         List<Boolean> validation = new ArrayList<>();
         try {
-            forgeProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equals(forgeSettings.getProjectName())).findFirst().get();
+            forgeProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equalsIgnoreCase(forgeSettings.getProjectName())).findFirst().get();
             validation.add(true);
         } catch (NoSuchElementException ignored) { }
         try {
-            fabricProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equals(fabricSettings.getProjectName())).findFirst().get();
+            fabricProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equalsIgnoreCase(fabricSettings.getProjectName())).findFirst().get();
             validation.add(true);
         } catch (NoSuchElementException ignored) { }
         try {
-            quiltProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equals(quiltSettings.getProjectName())).findFirst().get();
+            quiltProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equalsIgnoreCase(quiltSettings.getProjectName())).findFirst().get();
             validation.add(true);
         } catch (NoSuchElementException ignored) { }
 
