@@ -29,7 +29,7 @@ public class Forgix {
     public static final String manifestVersionKey = "Forgix-Version";
 
     public static class Merge {
-        private final String version = "1.2.3";
+        private final String version = "1.2.5";
         public static Set<PosixFilePermission> perms;
 
         static {
