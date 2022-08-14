@@ -13,7 +13,7 @@ Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#s
 
 ```groovy
 plugins {
-    id "io.github.pacifistmc.forgix" version "1.2.2"
+    id "io.github.pacifistmc.forgix" version "1.2.3"
 }
 ```
 
@@ -28,7 +28,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath "io.github.pacifistmc.forgix:Forgix:1.2.2"
+        classpath "io.github.pacifistmc.forgix:Forgix:1.2.3"
     }
 }
 
@@ -42,7 +42,7 @@ Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#s
 
 ```kotlin
 plugins {
-    id("io.github.pacifistmc.forgix") version "1.2.2"
+    id("io.github.pacifistmc.forgix") version "1.2.3"
 }
 ```
 
@@ -57,7 +57,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath("io.github.pacifistmc.forgix:Forgix:1.2.2")
+        classpath("io.github.pacifistmc.forgix:Forgix:1.2.3")
     }
 }
 
@@ -116,6 +116,9 @@ forgix {
         additionalRelocate "org.my.lib" "spigot.org.my.lib" // This is an important one to know. This is how you can remap additional packages such as libraries and stuff.
         additionalRelocate "org.my.lib.another" "spigot.org.my.lib.another"
     }
+    
+    // This should be used to remove a duplicate package
+    removeDuplicate "org.example.mod.core"
 }
 ```
 #

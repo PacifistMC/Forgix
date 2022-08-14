@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 @SuppressWarnings({"ConstantConditions", "OptionalGetWithoutIsPresent", "ResultOfMethodCallIgnored"})
@@ -22,17 +23,17 @@ public class MergeJarsTask extends DefaultTask {
             ForgixPlugin.rootProject.getLogger().info("Check out how to configure them here: " + "https://github.com/PacifistMC/Forgix#configuration");
             return;
         }
-        ForgixExtension.ForgeContainer forgeSettings = ForgixPlugin.settings.getForgeContainer();
-        ForgixExtension.FabricContainer fabricSettings = ForgixPlugin.settings.getFabricContainer();
-        ForgixExtension.QuiltContainer quiltSettings = ForgixPlugin.settings.getQuiltContainer();
+        ForgixMergeExtension.ForgeContainer forgeSettings = ForgixPlugin.settings.getForgeContainer();
+        ForgixMergeExtension.FabricContainer fabricSettings = ForgixPlugin.settings.getFabricContainer();
+        ForgixMergeExtension.QuiltContainer quiltSettings = ForgixPlugin.settings.getQuiltContainer();
 
-        List<ForgixExtension.CustomContainer> customSettingsList = ForgixPlugin.settings.getCustomContainers();
+        List<ForgixMergeExtension.CustomContainer> customSettingsList = ForgixPlugin.settings.getCustomContainers();
 
         Project forgeProject = null;
         Project fabricProject = null;
         Project quiltProject = null;
 
-        Map<Project, ForgixExtension.CustomContainer> customProjects = new HashMap<>();
+        Map<Project, ForgixMergeExtension.CustomContainer> customProjects = new HashMap<>();
 
         List<Boolean> validation = new ArrayList<>();
         try {
@@ -48,7 +49,7 @@ public class MergeJarsTask extends DefaultTask {
             validation.add(true);
         } catch (NoSuchElementException ignored) { }
 
-        for (ForgixExtension.CustomContainer customSettings : customSettingsList) {
+        for (ForgixMergeExtension.CustomContainer customSettings : customSettingsList) {
             try {
                 customProjects.put(ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equals(customSettings.getProjectName())).findFirst().get(), customSettings);
                 validation.add(true);
@@ -66,7 +67,7 @@ public class MergeJarsTask extends DefaultTask {
         File fabricJar = null;
         File quiltJar = null;
 
-        Map<ForgixExtension.CustomContainer, File> customJars = new HashMap<>();
+        Map<ForgixMergeExtension.CustomContainer, File> customJars = new HashMap<>();
 
         if (forgeProject != null) {
             if (forgeSettings.getJarLocation() != null) {
@@ -119,7 +120,7 @@ public class MergeJarsTask extends DefaultTask {
             }
         }
 
-        for (Map.Entry<Project, ForgixExtension.CustomContainer> entry : customProjects.entrySet()) {
+        for (Map.Entry<Project, ForgixMergeExtension.CustomContainer> entry : customProjects.entrySet()) {
             if (entry.getValue().getJarLocation() != null) {
                 customJars.put(entry.getValue(), new File(entry.getKey().getProjectDir(), entry.getValue().getJarLocation()));
             } else {
@@ -140,10 +141,10 @@ public class MergeJarsTask extends DefaultTask {
         if (mergedJar.exists()) FileUtils.forceDelete(mergedJar);
         if (!mergedJar.getParentFile().exists()) mergedJar.getParentFile().mkdirs();
 
-        Path tempMergedJarPath = new Forgix(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), customJars, ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName(), ForgixPlugin.rootProject.getLogger()).merge().toPath();
-        Files.move(tempMergedJarPath, mergedJar.toPath());
+        Path tempMergedJarPath = new Forgix.Merge(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), customJars, ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName(), ForgixPlugin.settings.getRemoveDuplicates(), ForgixPlugin.rootProject.getLogger()).merge(false).toPath();
+        Files.move(tempMergedJarPath, mergedJar.toPath(), StandardCopyOption.REPLACE_EXISTING);
         try {
-            Files.setPosixFilePermissions(mergedJar.toPath(), Forgix.perms);
+            Files.setPosixFilePermissions(mergedJar.toPath(), Forgix.Merge.perms);
         } catch (UnsupportedOperationException | IOException | SecurityException ignored) { }
 
         ForgixPlugin.rootProject.getLogger().debug("Merged jar created in " + (System.currentTimeMillis() - time) / 1000.0 + " seconds.");

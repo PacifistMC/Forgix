@@ -9,13 +9,14 @@ import java.util.Map;
 
 // I couldn't find any good resources on how to do this, so I just went with it and wrote a lot of dumb code.
 @SuppressWarnings({"unused", "ConstantConditions"})
-public class ForgixExtension {
+public class ForgixMergeExtension {
     String group;
     String mergedJarName;
+    List<String> removeDuplicates;
 
     String outputDir = "Merged";
 
-    public ForgixExtension() {
+    public ForgixMergeExtension() {
         if (group != null) {
             if (ForgixPlugin.rootProject.hasProperty("maven_group")) {
                 group = ForgixPlugin.rootProject.property("maven_group").toString();
@@ -131,6 +132,20 @@ public class ForgixExtension {
 
     public List<CustomContainer> getCustomContainers() {
         return customContainers;
+    }
+
+    public List<String> getRemoveDuplicates() {
+        return removeDuplicates;
+    }
+
+    public void removeDuplicate(String duplicate) {
+        if (removeDuplicates == null) removeDuplicates = new ArrayList<>();
+        removeDuplicates.add(duplicate);
+    }
+
+    public void removeDuplicates(List<String> duplicates) {
+        if (removeDuplicates == null) removeDuplicates = new ArrayList<>();
+        removeDuplicates.addAll(duplicates);
     }
 
     @SuppressWarnings("InnerClassMayBeStatic")
