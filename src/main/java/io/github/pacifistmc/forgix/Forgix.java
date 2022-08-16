@@ -5,6 +5,8 @@ import fr.stevecohen.jarmanager.JarUnpacker;
 import io.github.pacifistmc.forgix.plugin.ForgixMergeExtension;
 import me.lucko.jarrelocator.JarRelocator;
 import me.lucko.jarrelocator.Relocation;
+import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 
@@ -14,12 +16,15 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.github.pacifistmc.forgix.utils.FileUtils.*;
 
@@ -29,7 +34,7 @@ public class Forgix {
     public static final String manifestVersionKey = "Forgix-Version";
 
     public static class Merge {
-        private final String version = "1.2.5";
+        private final String version = "1.2.6";
         public static Set<PosixFilePermission> perms;
 
         static {
@@ -269,12 +274,24 @@ public class Forgix {
                 }
             }
 
-            removeDuplicateResources(mergedTemps);
-
             JarPacker jarPacker = new JarPacker();
             jarPacker.pack(mergedTemps.getAbsolutePath(), mergedJar.getAbsolutePath());
 
-            removeDuplicate(mergedJar, new File(tempDir, mergedJarName + ".duplicate.remover"));
+            File dupeTemps = new File(mergedTemps.getParentFile(), "duplicate-temps");
+            if (dupeTemps.exists()) FileUtils.deleteQuietly(dupeTemps);
+
+            setupDuplicates();
+
+            removeDuplicate(mergedJar, new File(tempDir, mergedJarName + ".duplicate.remover"), mergedTemps);
+
+            FileUtils.deleteQuietly(mergedTemps);
+
+            jarUnpacker.unpack(mergedJar.getAbsolutePath(), mergedTemps.getAbsolutePath());
+
+            removeDuplicateResources(mergedTemps);
+
+            FileUtils.deleteQuietly(mergedJar);
+            jarPacker.pack(mergedTemps.getAbsolutePath(), mergedJar.getAbsolutePath());
 
             try {
                 Files.setPosixFilePermissions(mergedJar.toPath(), perms);
@@ -302,6 +319,8 @@ public class Forgix {
                     }
                 }
             }
+
+            if (dupeTemps.exists()) FileUtils.deleteQuietly(dupeTemps);
 
             return mergedJar;
         }
@@ -681,35 +700,25 @@ public class Forgix {
             }
         }
 
-        /**
-         * This method removes the duplicates specified in resources
-         */
-        private void removeDuplicateResources(File mergedTemps) throws IOException {
-            if (removeDuplicates != null) {
-                Map<String, String> removeDuplicateRelocationResources = new HashMap<>();
-                Map<File, File> filesToMove = new HashMap<>();
 
+        Map<String, String> removeDuplicateRelocationResources = new HashMap<>();
+
+        private void setupDuplicates() {
+            if (removeDuplicates != null) {
                 for (String duplicate : removeDuplicates) {
                     String duplicatePath = duplicate.replace(".", "/");
-                    File movedFile = new File(mergedTemps, duplicatePath.replace("/", File.separator));
 
                     if (forgeJar != null && forgeJar.exists()) {
-                        File file = new File(mergedTemps, "forge" + File.separator + duplicatePath.replace("/", File.separator));
-                        if (file.exists()) filesToMove.put(file, movedFile);
                         removeDuplicateRelocations.put("forge." + duplicate, duplicate);
                         removeDuplicateRelocationResources.put("forge/" + duplicatePath, duplicatePath);
                     }
 
                     if (fabricJar != null && fabricJar.exists()) {
-                        File file = new File(mergedTemps, "fabric" + File.separator + duplicatePath.replace("/", File.separator));
-                        if (file.exists()) filesToMove.put(file, movedFile);
                         removeDuplicateRelocations.put("fabric." + duplicate, duplicate);
                         removeDuplicateRelocationResources.put("fabric/" + duplicatePath, duplicatePath);
                     }
 
                     if (quiltJar != null && quiltJar.exists()) {
-                        File file = new File(mergedTemps, "quilt" + File.separator + duplicatePath.replace("/", File.separator));
-                        if (file.exists()) filesToMove.put(file, movedFile);
                         removeDuplicateRelocations.put("quilt." + duplicate, duplicate);
                         removeDuplicateRelocationResources.put("quilt/" + duplicatePath, duplicatePath);
                     }
@@ -718,8 +727,6 @@ public class Forgix {
                         for (Map.Entry<File, File> entry2 : entry.getValue().entrySet()) {
                             if (entry2.getKey() != null && entry2.getKey().exists()) {
                                 String name = entry.getKey().getProjectName();
-                                File file = new File(mergedTemps, name + File.separator + duplicatePath.replace("/", File.separator));
-                                if (file.exists()) filesToMove.put(file, movedFile);
                                 removeDuplicateRelocations.put(name + "." + duplicate, duplicate);
                                 removeDuplicateRelocationResources.put(name + "/" + duplicatePath, duplicatePath);
                             }
@@ -727,13 +734,25 @@ public class Forgix {
                     }
                 }
 
-                for (Map.Entry<File, File> files : filesToMove.entrySet()) {
-                    File file = files.getKey();
-                    Files.move(file.toPath(), files.getValue().toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    if (file.exists()) file.delete();
-                }
-
                 removeDuplicateRelocationResources.putAll(removeDuplicateRelocations);
+            }
+        }
+
+        /**
+         * This method removes the duplicates specified in resources
+         */
+        private void removeDuplicateResources(File mergedTemps) throws IOException {
+            if (removeDuplicates != null) {
+                try (Stream<Path> pathStream = Files.list(new File(mergedTemps.getParentFile(), "duplicate-temps").toPath())) {
+                    for (Path path : pathStream.collect(Collectors.toList())) {
+                        File file = path.toFile();
+                        if (file.isDirectory()) {
+                            FileUtils.copyDirectory(file, mergedTemps);
+                        } else {
+                            FileUtils.copyFileToDirectory(file, mergedTemps);
+                        }
+                    }
+                }
 
                 for (File file : listAllTextFiles(mergedTemps)) {
                     FileInputStream fis = new FileInputStream(file);
@@ -762,22 +781,42 @@ public class Forgix {
         /**
          * This method removes the duplicates specified
          */
-        private void removeDuplicate(File mergedJar, File mergedOutputJar) throws IOException {
-            if (mergedOutputJar.exists()) mergedOutputJar.delete();
-            mergedOutputJar.createNewFile();
+        private void removeDuplicate(File mergedJar, File mergedOutputJar, File mergedTemps) throws IOException {
+            // Have to do it this way cause there's a bug with jar-relocator where it doesn't accept duplicate values
+            while (!removeDuplicateRelocations.isEmpty()) {
+                Map.Entry<String, String> removeDuplicate = removeDuplicateRelocations.entrySet().stream().findFirst().get();
+                try (ZipFile zipFile = new ZipFile(mergedJar)) {
+                    try {
+                        zipFile.extractFile(removeDuplicate.getValue().replace(".", "/") + "/", new File(mergedTemps.getParentFile(), "duplicate-temps" + "/").getPath());
+                    } catch (ZipException e) {
+                        if (!e.getType().equals(ZipException.Type.FILE_NOT_FOUND)) {
+                            throw e;
+                        }
+                    }
+                }
 
-            List<Relocation> relocations = new ArrayList<>();
+                if (mergedOutputJar.exists()) mergedOutputJar.delete();
+                mergedOutputJar.createNewFile();
 
-            for (Map.Entry<String, String> removeDuplicate : removeDuplicateRelocations.entrySet()) {
+                List<Relocation> relocations = new ArrayList<>();
+
                 relocations.add(new Relocation(removeDuplicate.getKey(), removeDuplicate.getValue()));
+
+                JarRelocator jarRelocator = new JarRelocator(mergedJar, mergedOutputJar, relocations);
+                jarRelocator.run();
+
+                Files.move(mergedOutputJar.toPath(), mergedJar.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+                if (mergedOutputJar.exists()) mergedOutputJar.delete();
+                removeDuplicateRelocations.remove(removeDuplicate.getKey(), removeDuplicate.getValue());
+
+                try (ZipFile zipFile = new ZipFile(mergedJar)) {
+                    zipFile.extractFile(removeDuplicate.getValue().replace(".", "/") + "/", new File(mergedTemps.getParentFile(), "duplicate-temps" + File.separator + removeDuplicate.getValue() + File.separator).getPath());
+                    if (removeDuplicateRelocations.containsValue(removeDuplicate.getValue())) {
+                        zipFile.removeFile(removeDuplicate.getValue().replace(".", "/") + "/");
+                    }
+                }
             }
-
-            JarRelocator jarRelocator = new JarRelocator(mergedJar, mergedOutputJar, relocations);
-            jarRelocator.run();
-
-            Files.move(mergedOutputJar.toPath(), mergedJar.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-            if (mergedOutputJar.exists()) mergedOutputJar.delete();
         }
     }
 }

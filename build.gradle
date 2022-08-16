@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'io.github.pacifistmc.forgix'
-version '1.2.5' // Make sure to change the version number in io.github.pacifistmc.forgix.Forgix
+version '1.2.6' // Make sure to change the version number in io.github.pacifistmc.forgix.Forgix
 
 configurations {
     shadowMe
@@ -29,6 +29,7 @@ dependencies {
     }
     shadowMe 'org.ow2.asm:asm:9.3'
     shadowMe 'org.ow2.asm:asm-commons:9.3'
+    shadowMe 'net.lingala.zip4j:zip4j:2.11.1'
 
     shadowMe fileTree(dir: 'libs', include: ['*.jar']) // https://bitbucket.org/ReaperSoon/maven-repo/src/367c0bcb2749/fr/stevecohen/jarmanager
 }
@@ -42,6 +43,7 @@ shadowJar {
     relocate "fr.stevecohen.jarmanager", "pacifistmc.libraries.fr.stevecohen.jarmanager"
     relocate "org.objectweb.asm", "pacifistmc.libraries.org.objectweb.asm"
     relocate "org.apache.commons.io", "pacifistmc.libraries.org.apache.commons.io"
+    relocate "net.lingala.zip4j", "pacifistmc.libraries.net.lingala.zip4j"
 }
 
 gradlePlugin {
