@@ -1,4 +1,4 @@
-![Forgix](https://github.com/PacifistMC/Forgix/blob/main/assets/forgix-with-text.png?raw=true)
+![Forgix](https://raw.githubusercontent.com/PacifistMC/Forgix/main/assets/forgix-with-text.png)
 ---
 A Gradle plugin/an [Architectury](https://github.com/architectury) addon to merge mod-loaders together into one jar! 𝘸𝘢𝘩𝘩 𝘵𝘦𝘤𝘩𝘯𝘰𝘭𝘰𝘨𝘺
 
