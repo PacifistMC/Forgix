@@ -1,4 +1,4 @@
-![# Forgix](https://github.com/PacifistMC/Forgix/assets/forgix-with-text.png?raw=true)
+![Forgix](https://github.com/PacifistMC/Forgix/blob/main/assets/forgix-with-text.png?raw=true)
 ---
 A Gradle plugin/an [Architectury](https://github.com/architectury) addon to merge mod-loaders together into one jar! 𝘸𝘢𝘩𝘩 𝘵𝘦𝘤𝘩𝘯𝘰𝘭𝘰𝘨𝘺
 
@@ -127,4 +127,3 @@ Well [DHJarMerger](https://github.com/Ran-helo/DHJarMerger) was hard coded for t
 ###
 #### How did I come up with the name "Forgix"?
 Well an AI generated it for me
-_and also gave me the logo for it_
