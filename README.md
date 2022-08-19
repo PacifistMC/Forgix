@@ -3,6 +3,12 @@
 Forgix is a brand-new tool that allows Minecraft modders to combine numerous mod-loaders into one jar!
 
 #### Note: Forgix should work without Architectury as long as you provide where to get the jars and such 
+
+___
+### Probably should read about Forgix on the items listed below instead of reading the things in here since the things listed below are a more up-to date version and goes a bit more in-depth
+[Forgix on the Quilt Forums](https://forum.quiltmc.org/t/forgix-a-way-for-merging-mod-loaders-into-a-singular-jar)
+___
+
 ## Usage:
 _This would probably be moved to wikis at some point and will have better documentation_
 #### 
