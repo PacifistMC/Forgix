@@ -1,9 +1,6 @@
 ![Forgix](https://raw.githubusercontent.com/PacifistMC/Forgix/main/assets/forgix-with-text.png)
 ---
-Forgix is a brand-new tool that allows Minecraft modders to combine numerous mod-loaders into one jar!
-
-### What is it?
-Forgix is a tool that is used to combine numerous mod-loaders into a single jar.
+Forgix is a brand-new tool that allows Minecraft modders to combine multiple plugin/mod-loaders into one jar!
 
 ### How does this benefit me as a regular user?
 You don’t need to know much about Forgix **as this is a tool for developers**, but the mods you use may simply have a single file that you need to download, so you don’t have to worry about which mod-loader you’re installing for.
@@ -13,7 +10,7 @@ Yes, in its current state, it is quite ready for production usage and has worked
 You could wait for update `2.0.0` which is a complete rewrite of the project but it releases anytime between now and [January 1, 4096 (UTC)]().
 
 ### How it all began
-Forgix began as an experiment to see if I could merge multiple mod-loaders into one; I know it’s possible _(despite the fact that a lot of people said it wasn’t)_, and after a lot of trial and error I managed to make a working prototype for semi-automatic jar merging, which was actually quite bad and was hard-coded to only work with the mod I was working on.  
+Forgix began as an experiment to see if I could merge multiple mod-loaders into one; I knew it was possible _(despite the fact that a lot of people said it wasn’t)_, and after a lot of trial and error I managed to make a working prototype for semi-automatic jar merging, which was actually quite bad and was hard-coded to only work with the mod I was working on.  
 After realizing that it was doable, I rewrote the entire thing so that it could be used by the public, and so Forigx was born.
 
 ### How it works
@@ -141,7 +138,7 @@ subprojects {
   - A required value for now.
 - `removeDuplicate` (String)
   - This removes a duplicate package from the merged jar. For example, if you have a core package that is replicated across all mod-loaders but doesn’t need to be then you might use this to remove the duplication.
-  - This can be used numerous times to remove multiple duplicates, but if there are a lot of them then it’s best to use ‘removeDuplicates’ which accepts a list.
+  - This can be used more than once to remove multiple duplicates, but if there are a lot of them then it’s best to use ‘removeDuplicates’ which accepts a list.
 
 ##### Forge sub-container (“forge”)
 - `projectName` (String)
@@ -152,8 +149,8 @@ subprojects {
   - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
   - This can be used numerous times to specify multiple relocations.
 - `mixin` (String)
-  - This exists because Forge can be a nuisance at times, and sometimes Forge does something strange where we can’t actually identify mixins the normal way. However, if we don’t automatically detect the mixins, then this should be used to specify the mixins explicitly.
-  - This can be used numerous times to specify multiple mixins.
+  - This exists because Forge can be a real pain at times, and Forge sometimes does something strange where we can’t actually identify mixins the normal way. However, if we don’t automatically detect the mixins, then only this should be used to specify the mixins explicitly.
+  - This can be used more than once to specify multiple mixins.
 
 ##### Quilt sub-container (“quilt”)
 - `projectName` (String)
@@ -162,7 +159,7 @@ subprojects {
   - This is the location of the built Quilt jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
 - `additionalRelocate` (String, String)
   - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
-  - This can be used numerous times to specify multiple relocations.
+  - This can be used more than once to specify multiple relocations.
 
 ##### Fabric sub-container (“fabric”)
 - `projectName` (String)
@@ -171,7 +168,7 @@ subprojects {
   - This is the location of the built Fabric jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
 - `additionalRelocate` (String, String)
   - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
-  - This can be used numerous times to specify multiple relocations.
+  - This can be used more than once to specify multiple relocations.
 
 ##### Custom sub-container (“custom”)
 Because I’m not going to develop a new container for each mod-loader, this is the one that handles everything else. This can't handle Forge-like modloaders though due to Forge being weird and cursed. This configuration can be used more than once to specify multiple loaders.
@@ -182,7 +179,7 @@ Because I’m not going to develop a new container for each mod-loader, this is 
   - This is the location of the built jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
 - `additionalRelocate` (String, String)
   - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
-  - This can be used numerous times to specify multiple relocations.
+  - This can be used more than once to specify multiple relocations.
 
 An example of a complete Forgix configuration:
 
