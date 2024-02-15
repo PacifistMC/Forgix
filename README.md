@@ -2,29 +2,47 @@
 ---
 Forgix is a brand-new tool that allows Minecraft modders to combine numerous mod-loaders into one jar!
 
-#### Note: Forgix should work without Architectury as long as you provide where to get the jars and such 
+### What is it?
+Forgix is a tool that is used to combine numerous mod-loaders into a single jar.
 
-___
-### Probably should read about Forgix on the items listed below instead of reading the things in here since the things listed below are a more up-to date version and goes a bit more in-depth
-[Forgix on the Quilt Forums](https://forum.quiltmc.org/t/forgix-a-way-for-merging-mod-loaders-into-a-singular-jar)
-___
+### How does this benefit me as a regular user?
+You don’t need to know much about Forgix **as this is a tool for developers**, but the mods you use may simply have a single file that you need to download, so you don’t have to worry about which mod-loader you’re installing for.
 
-## Usage:
-_This would probably be moved to wikis at some point and will have better documentation_
-#### 
-#### Note: You'll have to do all of these in the root build.gradle
-### Applying the plugin:
+### Is it stable enough for production use?
+Yes, in its current state, it is quite ready for production usage and has worked on all mods I’ve tested and should work on your mod as well, even if your mod’s code base is very cursed. If anything breaks, simply open an [issue on GitHub](https://github.com/PacifistMC/Forgix/issues).  
+You could wait for update `2.0.0` which is a complete rewrite of the project but it releases anytime between now and [January 1, 4096 (UTC)]().
+
+### How it all began
+Forgix began as an experiment to see if I could merge multiple mod-loaders into one; I know it’s possible _(despite the fact that a lot of people said it wasn’t)_, and after a lot of trial and error I managed to make a working prototype for semi-automatic jar merging, which was actually quite bad and was hard-coded to only work with the mod I was working on.  
+After realizing that it was doable, I rewrote the entire thing so that it could be used by the public, and so Forigx was born.
+
+### How it works
+Forgix makes advantage of a JVM feature that only loads the classes that are called; by altering the packages slightly, we can make it such that each mod-loader calls its own package and does not interfere with other mod-loaders.
+
+So, for example, Quilt goes into `quilt.mod.json` and calls the entry-point from there, but we’ve updated the packages so that it only calls Quilt entry-points and not other mod-loader entry-points, and JVM will never load other classes since Quilt would never call them.
+
+### Usage and Documentation
+> First apply the plugin in your **root** build.gradle
+
+<details closed>
+<summary>Applying the plugin</summary>
+
+---
 #### Groovy
-Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#sec:plugins_block):
+Using [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#sec:plugins_block):
+<details closed>
+<summary>Click to view</summary>
 
 ```groovy
 plugins {
-    id "io.github.pacifistmc.forgix" version "1.2.6"
+    id "io.github.pacifistmc.forgix" version "<version>"
 }
 ```
+</details>
 
 Using the [legacy plugin application](https://docs.gradle.org/current/userguide/plugins.html#sec:old_plugin_application):
-<details><summary>Click to View</summary>
+<details closed>
+<summary>Click to view</summary>
 
 ```groovy
 buildscript {
@@ -34,7 +52,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath "io.github.pacifistmc.forgix:Forgix:1.2.6"
+        classpath "io.github.pacifistmc.forgix:Forgix:<version>"
     }
 }
 
@@ -43,17 +61,20 @@ apply plugin: "io.github.pacifistmc.forgix"
 </details>
 
 #### Kotlin
-
-Using the [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#sec:plugins_block):
+Using [plugins DSL](https://docs.gradle.org/current/userguide/plugins.html#sec:plugins_block):
+<details closed>
+<summary>Click to view</summary>
 
 ```kotlin
 plugins {
-    id("io.github.pacifistmc.forgix") version "1.2.6"
+    id("io.github.pacifistmc.forgix") version "<version>"
 }
 ```
+</details>
 
 Using the [legacy plugin application](https://docs.gradle.org/current/userguide/plugins.html#sec:old_plugin_application):
-<details><summary>Click to View</summary>
+<details closed>
+<summary>Click to view</summary>
 
 ```kotlin
 buildscript {
@@ -63,7 +84,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath("io.github.pacifistmc.forgix:Forgix:1.2.6")
+        classpath("io.github.pacifistmc.forgix:Forgix:<version>")
     }
 }
 
@@ -71,65 +92,155 @@ apply(plugin = "io.github.pacifistmc.forgix")
 ```
 </details>
 
-### Configuration:
-By default just running the task "mergeJars" should work if you've made your mod through the [Architectury Template](https://github.com/architectury/architectury-templates). Though don't forget to build the jars first!
+Remember to change `<version>` with the latest version! You can get the latest version from [Forgix Version](https://github.com/PacifistMC/Forgix/blob/main/version.md).
+
+---
+</details>
+
+> Then configure it to work with your mod!  _This process is going to be automatic in the future but I haven’t gotten time to make that yet._
+<details closed>
+<summary>Configuring the plugin to make it work</summary>
+
+---
+This is the normal configuration that by default should work on almost all mods.
+
 ```groovy
 forgix {
-    group = "org.example.mod" // This is the common group of the mod which by default in Architectury Template it's defined as "maven_group" in your gradle.properties. If this property is not defined then by default it'll fetch the group from the maven_group property in your gradle.properties
-    mergedJarName = "example-mod" // This is the name of the merged jar. If this property is not defined then by default it'll fetch the "archives_base_name" property with the "mod_version" property in your gradle.properties.
-    outputDir = "build/libs/Merged" // This is the output directory of the merged jar from the root project. If this property is not defined then by default it's set to "Merged".
+    group = "org.example.mod"
+    mergedJarName = "example-mod"
+}
+```
+
+The `group` is the common package name for your mod and the `mergedJarName` is going to be the name of the merged jar that it’s going to create, if the `mergedJarName` doesn’t have an extension then it’s going to give it the extension `jar` but keep in mind that sometimes the version number might be detected as an extension which at that point it won’t give it the extension `jar` and you’ll have to manually do that.
+
+Running the task `mergeJars` (after running `build`) would create the merged jars in the `Merged` folder. _(In the future this might be in the `build/libs/merged` folder)_
+
+If you don’t want to run `mergeJars` manually then you could add this. _(In the future this might be the default behavior)_
+
+```groovy
+subprojects {
+    // ...
+    build.finalizedBy(mergeJars)
+    assemble.finalizedBy(mergeJars)
+}
+```
+---
+</details>
+
+> Documentation for each Forgix configuration!
+<details closed>
+<summary>Click to view</summary>
+
+---
+#### Root container (“forgix”)
+- `group` (String)
+  - This is the common package name for your mod; it is usually the maven group.
+  - A required value for now.
+- `mergedJarName` (String)
+  - This is the output jar’s name. If the name does not contain an extension, the extension `jar` is added; however, it sometimes identifies the version number as an extension and does not add it; in that case, you need to manually add the `jar` extension to the name.
+  - A required value for now.
+- `removeDuplicate` (String)
+  - This removes a duplicate package from the merged jar. For example, if you have a core package that is replicated across all mod-loaders but doesn’t need to be then you might use this to remove the duplication.
+  - This can be used numerous times to remove multiple duplicates, but if there are a lot of them then it’s best to use ‘removeDuplicates’ which accepts a list.
+
+##### Forge sub-container (“forge”)
+- `projectName` (String)
+  - This is the name of the Forge project. This is set to “forge” by default.
+- `jarLocation` (String)
+  - This is the location of the built Forge jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
+- `additionalRelocate` (String, String)
+  - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
+  - This can be used numerous times to specify multiple relocations.
+- `mixin` (String)
+  - This exists because Forge can be a nuisance at times, and sometimes Forge does something strange where we can’t actually identify mixins the normal way. However, if we don’t automatically detect the mixins, then this should be used to specify the mixins explicitly.
+  - This can be used numerous times to specify multiple mixins.
+
+##### Quilt sub-container (“quilt”)
+- `projectName` (String)
+  - This is the name of the Quilt project. This is set to “quilt” by default.
+- `jarLocation` (String)
+  - This is the location of the built Quilt jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
+- `additionalRelocate` (String, String)
+  - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
+  - This can be used numerous times to specify multiple relocations.
+
+##### Fabric sub-container (“fabric”)
+- `projectName` (String)
+  - This is the name of the Fabric project. This is set to “fabric” by default.
+- `jarLocation` (String)
+  - This is the location of the built Fabric jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
+- `additionalRelocate` (String, String)
+  - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
+  - This can be used numerous times to specify multiple relocations.
+
+##### Custom sub-container (“custom”)
+Because I’m not going to develop a new container for each mod-loader, this is the one that handles everything else. This can't handle Forge-like modloaders though due to Forge being weird and cursed. This configuration can be used more than once to specify multiple loaders.
+- `projectName` (String)
+  - This is the name of the project.
+  - This is a required value.
+- `jarLocation` (String)
+  - This is the location of the built jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
+- `additionalRelocate` (String, String)
+  - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
+  - This can be used numerous times to specify multiple relocations.
+
+An example of a complete Forgix configuration:
+
+```groovy
+forgix {
+    group = "org.example.mod" // (Required Value)
+    mergedJarName = "example-mod" // (Required Value)
+    outputDir = "build/libs/merged"
     
     forge {
-        projectName = "forge" // This is the name of the forge project. If this property is not defined then by default it'll set to "forge" since that's the name the Architectury Template uses.
-        jarLocation = "build/libs/example-mod.jar" // This is the location of the forge jar from the forge project. If this property is not defined then by default it fetches the jar with the shortest name.
+        projectName = "forge"
+        jarLocation = "build/libs/example-mod.jar"
 
-        additionalRelocate "org.my.lib" "forge.org.my.lib" // This is an important one to know. This is how you can remap additional packages such as libraries and stuff.
+        additionalRelocate "org.my.lib" "forge.org.my.lib"
         additionalRelocate "org.my.lib.another" "forge.org.my.lib.another"
         
-        mixin "forge.mixins.json" // This is in case if we didn't auto detect the forge mixins.
+        mixin "forge.mixins.json"
         mixin "forge.mixins.another.json"
     }
     
     fabric {
-        projectName = "fabric" // This is the name of the fabric project. If this property is not defined then by default it'll set to "fabric" since that's the name the Architectury Template uses.
-        jarLocation = "build/libs/example-mod.jar" // This is the location of the fabric jar from the fabric project. If this property is not defined then by default it fetches the jar with the shortest name.
+        projectName = "fabric"
+        jarLocation = "build/libs/example-mod.jar"
         
-        additionalRelocate "org.my.lib" "fabric.org.my.lib" // This is an important one to know. This is how you can remap additional packages such as libraries and stuff.
+        additionalRelocate "org.my.lib" "fabric.org.my.lib"
         additionalRelocate "org.my.lib.another" "fabric.org.my.lib.another"
     }
     
     quilt {
-        projectName = "quilt" // This is the name of the quilt project. If this property is not defined then by default it'll set to "quilt" since that's the name the Architectury Template uses.
-        jarLocation = "build/libs/example-mod.jar" // This is the location of the quilt jar from the quilt project. If this property is not defined then by default it fetches the jar with the shortest name.
+        projectName = "quilt"
+        jarLocation = "build/libs/example-mod.jar"
         
-        additionalRelocate "org.my.lib" "quilt.org.my.lib" // This is an important one to know. This is how you can remap additional packages such as libraries and stuff.
+        additionalRelocate "org.my.lib" "quilt.org.my.lib"
         additionalRelocate "org.my.lib.another" "quilt.org.my.lib.another"
     }
 
-    // For "custom", the "projectName" is a required value.
     custom {
-        projectName = "sponge" // This is the name of the project. This is a required field.
-        jarLocation = "build/libs/example-mod.jar" // This is the location of the jar from the project. If this property is not defined then by default it fetches the jar with the shortest name.
+        projectName = "sponge" // (Required Value)
+        jarLocation = "build/libs/example-mod.jar"
         
-        additionalRelocate "org.my.lib" "sponge.org.my.lib" // This is an important one to know. This is how you can remap additional packages such as libraries and stuff.
+        additionalRelocate "org.my.lib" "sponge.org.my.lib"
         additionalRelocate "org.my.lib.another" "sponge.org.my.lib.another"
     }
 
     custom {
-        projectName = "spigot" // This is the name of the project. This is a required field.
-        jarLocation = "build/libs/example-mod.jar" // This is the location of the jar from the project. If this property is not defined then by default it fetches the jar with the shortest name.
+        projectName = "spigot" // (Required Value)
+        jarLocation = "build/libs/example-mod.jar"
 
-        additionalRelocate "org.my.lib" "spigot.org.my.lib" // This is an important one to know. This is how you can remap additional packages such as libraries and stuff.
+        additionalRelocate "org.my.lib" "spigot.org.my.lib"
         additionalRelocate "org.my.lib.another" "spigot.org.my.lib.another"
     }
     
-    // This should be used to remove a duplicate package
     removeDuplicate "org.example.mod.core"
 }
 ```
-#
-### What happened to DHJarMerger?
-Well [DHJarMerger](https://github.com/Ran-helo/DHJarMerger) was hard coded for the [Distant Horizons](https://www.curseforge.com/minecraft/mc-mods/distant-horizons) mod and was never really meant for the public. Forgix on the other hand is meant for the public and a lot better since I actually know what I am doing this time, it also has support for lots of other features and is just better in every way.
-###
-#### How did I come up with the name "Forgix"?
-Well an AI generated it for me
+---
+</details>
+
+### This project feels dead
+Depending on how far in the future you are, it very well could be. I am not going to update this every day; all future updates will be bug fixes for issues I haven’t found, quality of life improvements, or resolving that one Minecraft mod that won’t work due to how cursed its codebase is.
+If it works, it works
