@@ -1,13 +1,13 @@
 plugins {
     id 'java'
     id 'java-gradle-plugin'
-    id 'com.github.johnrengelman.shadow' version '7.0.0'
+    id 'com.github.johnrengelman.shadow' version '8.0.0'
     id 'maven-publish'
-    id 'com.gradle.plugin-publish' version '0.16.0'
+    id 'com.gradle.plugin-publish' version '0.21.0'
 }
 
 group 'io.github.pacifistmc.forgix'
-version '1.2.6' // Make sure to change the version number in io.github.pacifistmc.forgix.Forgix
+version '1.2.7' // Make sure to change the version number in io.github.pacifistmc.forgix.Forgix
 
 configurations {
     shadowMe
@@ -21,15 +21,15 @@ repositories {
 dependencies {
     implementation gradleApi()
 
-    shadowMe 'commons-io:commons-io:2.11.0'
+    shadowMe 'commons-io:commons-io:2.16.1'
 
     // Magic
-    shadowMe('me.lucko:jar-relocator:1.5') {
+    shadowMe('me.lucko:jar-relocator:1.7') {
         exclude group: 'org.ow2.asm'
     }
-    shadowMe 'org.ow2.asm:asm:9.3'
-    shadowMe 'org.ow2.asm:asm-commons:9.3'
-    shadowMe 'net.lingala.zip4j:zip4j:2.11.1'
+    shadowMe 'org.ow2.asm:asm:9.7'
+    shadowMe 'org.ow2.asm:asm-commons:9.7'
+    shadowMe 'net.lingala.zip4j:zip4j:2.11.5'
 
     shadowMe fileTree(dir: 'libs', include: ['*.jar']) // https://bitbucket.org/ReaperSoon/maven-repo/src/367c0bcb2749/fr/stevecohen/jarmanager
 }
