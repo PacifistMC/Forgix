@@ -152,6 +152,18 @@ subprojects {
   - This exists because Forge can be a real pain at times, and Forge sometimes does something strange where we can’t actually identify mixins the normal way. However, if we don’t automatically detect the mixins, then only this should be used to specify the mixins explicitly.
   - This can be used more than once to specify multiple mixins.
 
+##### NeoForge sub-container (“neoforge”)
+- `projectName` (String)
+  - This is the name of the Forge project. This is set to “neoforge” by default.
+- `jarLocation` (String)
+  - This is the location of the built NeoForge jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
+- `additionalRelocate` (String, String)
+  - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
+  - This can be used numerous times to specify multiple relocations.
+- `mixin` (String)
+  - This exists because NeoForge can be a real pain at times, and NeoForge sometimes does something strange where we can’t actually identify mixins the normal way. However, if we don’t automatically detect the mixins, then only this should be used to specify the mixins explicitly.
+  - This can be used more than once to specify multiple mixins.
+
 ##### Quilt sub-container (“quilt”)
 - `projectName` (String)
   - This is the name of the Quilt project. This is set to “quilt” by default.
@@ -198,6 +210,17 @@ forgix {
         
         mixin "forge.mixins.json"
         mixin "forge.mixins.another.json"
+    }
+
+    neoforge {
+      projectName = "neoforge"
+      jarLocation = "build/libs/example-mod.jar"
+  
+      additionalRelocate "org.my.lib" "neoforge.org.my.lib"
+      additionalRelocate "org.my.lib.another" "neoforge.org.my.lib.another"
+  
+      mixin "neoforge.mixins.json"
+      mixin "neoforge.mixins.another.json"
     }
     
     fabric {
