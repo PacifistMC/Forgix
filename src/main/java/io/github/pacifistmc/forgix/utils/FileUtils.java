@@ -1,6 +1,7 @@
 package io.github.pacifistmc.forgix.utils;
 
 import org.apache.commons.io.FilenameUtils;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.nio.charset.Charset;
@@ -227,6 +228,45 @@ public class FileUtils {
         } catch (IOException exception) {
             return false;
         }
+    }
+
+    /**
+     * Try to find the latest file with the shortest name in a directory
+     * @param directory The directory to find the file in
+     * @return The newest file or null if no files were found
+     */
+    @Nullable
+    public static File findLatestFile(File directory) {
+        File latestFile = null;
+        long lastModifiedTime = Long.MIN_VALUE;
+        int i = 0;
+        List<File> processedFiles = new ArrayList<>();
+
+        File[] files = directory.listFiles();
+        if (files == null)
+            return null;
+
+        for (File f : files) {
+            if (f.isDirectory() || !isZipFile(f))
+                continue;
+
+            if (f.getName().contains("-shadow") || f.getName().contains("-sources") || f.getName().contains("-dev"))
+                continue;
+
+            if (f.lastModified() > lastModifiedTime) {
+                lastModifiedTime = f.lastModified();
+                processedFiles.add(f);
+            }
+        }
+
+        for (File f : processedFiles) {
+            if (f.getName().length() < i || i == 0) {
+                latestFile = f;
+                i = f.getName().length();
+            }
+        }
+
+        return latestFile;
     }
 
     /**

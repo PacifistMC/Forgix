@@ -80,16 +80,7 @@ public class MergeJarsTask extends DefaultTask {
             if (forgeSettings.getJarLocation() != null) {
                 forgeJar = new File(forgeProject.getProjectDir(), forgeSettings.getJarLocation());
             } else {
-                int i = 0;
-                for (File file : new File(forgeProject.getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            forgeJar = file;
-                        }
-                    }
-                }
+                forgeJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(forgeProject.getBuildDir(), "libs"));
             }
         }
 
@@ -97,16 +88,7 @@ public class MergeJarsTask extends DefaultTask {
             if (neoforgeSettings.getJarLocation() != null) {
                 neoforgeJar = new File(neoforgeProject.getProjectDir(), neoforgeSettings.getJarLocation());
             } else {
-                int i = 0;
-                for (File file : new File(neoforgeProject.getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            neoforgeJar = file;
-                        }
-                    }
-                }
+                neoforgeJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(neoforgeProject.getBuildDir(), "libs"));
             }
         }
 
@@ -114,16 +96,7 @@ public class MergeJarsTask extends DefaultTask {
             if (fabricSettings.getJarLocation() != null) {
                 fabricJar = new File(fabricProject.getProjectDir(), fabricSettings.getJarLocation());
             } else {
-                int i = 0;
-                for (File file : new File(fabricProject.getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            fabricJar = file;
-                        }
-                    }
-                }
+                fabricJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(fabricProject.getBuildDir(), "libs"));
             }
         }
 
@@ -131,16 +104,7 @@ public class MergeJarsTask extends DefaultTask {
             if (quiltSettings.getJarLocation() != null) {
                 quiltJar = new File(quiltProject.getProjectDir(), quiltSettings.getJarLocation());
             } else {
-                int i = 0;
-                for (File file : new File(quiltProject.getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            quiltJar = file;
-                        }
-                    }
-                }
+                quiltJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(quiltProject.getBuildDir(), "libs"));
             }
         }
 
@@ -148,16 +112,7 @@ public class MergeJarsTask extends DefaultTask {
             if (entry.getValue().getJarLocation() != null) {
                 customJars.put(entry.getValue(), new File(entry.getKey().getProjectDir(), entry.getValue().getJarLocation()));
             } else {
-                int i = 0;
-                for (File file : new File(entry.getKey().getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            customJars.put(entry.getValue(), file);
-                        }
-                    }
-                }
+                customJars.put(entry.getValue(), io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(entry.getKey().getBuildDir(), "libs")));
             }
         }
 
