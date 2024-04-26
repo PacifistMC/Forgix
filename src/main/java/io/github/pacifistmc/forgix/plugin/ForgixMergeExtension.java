@@ -1,6 +1,7 @@
 package io.github.pacifistmc.forgix.plugin;
 
 import groovy.lang.Closure;
+import io.github.pacifistmc.forgix.Forgix;
 import org.apache.commons.io.FilenameUtils;
 
 import java.util.ArrayList;
@@ -134,6 +135,12 @@ public class ForgixMergeExtension {
         return customContainers;
     }
 
+    public List<Forgix.Merge.CustomContainer> getForgixCustomContainers() {
+        List<Forgix.Merge.CustomContainer> containers = new ArrayList<>();
+        getCustomContainers().forEach(c -> containers.add(c.toForgixCustomContainter()));
+        return containers;
+    }
+
     public List<String> getRemoveDuplicates() {
         return removeDuplicates;
     }
@@ -259,6 +266,7 @@ public class ForgixMergeExtension {
         String projectName;
         String jarLocation;
         Map<String, String> additionalRelocates;
+        boolean remap = true;
 
         public String getProjectName() {
             return projectName;
@@ -287,6 +295,14 @@ public class ForgixMergeExtension {
         public void additionalRelocate(String from, String to) {
             if (this.additionalRelocates == null) this.additionalRelocates = new java.util.HashMap<>();
             this.additionalRelocates.put(from, to);
+        }
+
+        public void setRemap(boolean remap) {
+            this.remap = remap;
+        }
+
+        Forgix.Merge.CustomContainer toForgixCustomContainter() {
+            return new Forgix.Merge.CustomContainer(projectName, jarLocation, additionalRelocates, remap);
         }
     }
 }

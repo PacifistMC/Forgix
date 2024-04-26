@@ -2,26 +2,24 @@ package io.github.pacifistmc.forgix;
 
 import fr.stevecohen.jarmanager.JarPacker;
 import fr.stevecohen.jarmanager.JarUnpacker;
-import io.github.pacifistmc.forgix.plugin.ForgixMergeExtension;
+import io.github.pacifistmc.forgix.plugin.ForgixSplitExtension;
 import me.lucko.jarrelocator.JarRelocator;
 import me.lucko.jarrelocator.Relocation;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
+import org.gradle.api.Project;
 import org.slf4j.Logger;
 
 import javax.annotation.Nullable;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -34,17 +32,42 @@ public class Forgix {
     public static final String manifestVersionKey = "Forgix-Version";
 
     public static class Merge {
-        private final String version = "1.2.6";
+        public static class CustomContainer {
+            public final String loaderName;
+            public final String jarLocation;
+            public Map<String, String> additionalRelocates;
+            public final boolean remapMainPackage;
+
+            /**
+             * Initializes an instance of {@link CustomContainer} or CustomLoader
+             * which is used for doing stuff with loaders that isn't supported by default in Forgix
+             * @param loaderName The name of the loader
+             * @param jarLocation The location of the jar
+             * @param additionalRelocates A map of additional relocates/relocations/mappings
+             */
+            public CustomContainer(String loaderName, String jarLocation, Map<String, String> additionalRelocates, boolean remapMainPackage) {
+                this.loaderName = loaderName;
+                this.jarLocation = jarLocation;
+                this.additionalRelocates = additionalRelocates;
+                this.remapMainPackage = remapMainPackage;
+            }
+
+            void setAdditionalRelocates(Map<String, String> additionalRelocates) {
+                this.additionalRelocates = additionalRelocates;
+            }
+        }
+
+        private final String version = "1.2.2";
         public static Set<PosixFilePermission> perms;
 
         static {
             perms = new HashSet<>();
-            perms.add(PosixFilePermission.OTHERS_EXECUTE);
-            perms.add(PosixFilePermission.OTHERS_WRITE);
-            perms.add(PosixFilePermission.OTHERS_READ);
             perms.add(PosixFilePermission.OWNER_EXECUTE);
             perms.add(PosixFilePermission.OWNER_WRITE);
             perms.add(PosixFilePermission.OWNER_READ);
+            perms.add(PosixFilePermission.OTHERS_EXECUTE);
+            perms.add(PosixFilePermission.OTHERS_WRITE);
+            perms.add(PosixFilePermission.OTHERS_READ);
             perms.add(PosixFilePermission.GROUP_EXECUTE);
             perms.add(PosixFilePermission.GROUP_WRITE);
             perms.add(PosixFilePermission.GROUP_READ);
@@ -57,8 +80,8 @@ public class Forgix {
         private Map<String, String> fabricRelocations;
         private File quiltJar;
         private Map<String, String> quiltRelocations;
-        private final Map<ForgixMergeExtension.CustomContainer, File> customContainerMap;
-        private Map<ForgixMergeExtension.CustomContainer, Map<File, File>> customContainerTemps;
+        private final Map<CustomContainer, File> customContainerMap;
+        private Map<CustomContainer, Map<File, File>> customContainerTemps;
         private final String group;
         private final File tempDir;
         private final String mergedJarName;
@@ -67,7 +90,23 @@ public class Forgix {
         private final Logger logger;
         private final Map<String, String> removeDuplicateRelocations = new HashMap<>();
 
-        public Merge(@Nullable File forgeJar, Map<String, String> forgeRelocations, List<String> forgeMixins, @Nullable File fabricJar, Map<String, String> fabricRelocations, @Nullable File quiltJar, Map<String, String> quiltRelocations, Map<ForgixMergeExtension.CustomContainer, File> customContainerMap, String group, File tempDir, String mergedJarName, List<String> removeDuplicates, Logger logger) {
+        /**
+         * Initializes a new instance of the {@link Merge} class for merging jar.
+         * @param forgeJar The forge jar (can be null)
+         * @param forgeRelocations The forge relocations/mappings (can be empty map)
+         * @param forgeMixins The forge mixins that you can manually add if it's not automatically detected (can be empty list)
+         * @param fabricJar The fabric jar (can be null)
+         * @param fabricRelocations The fabric relocations/mappings (can be empty map)
+         * @param quiltJar The quilt jar (can be null)
+         * @param quiltRelocations The quilt relocations/mappings (can be empty map)
+         * @param customContainerMap The custom containers (can be empty map)
+         * @param group The group to merge
+         * @param tempDir The temp directory to use for temporary files
+         * @param mergedJarName The name of the merged jar
+         * @param removeDuplicates The list of duplicates to remove (can be empty list)
+         * @param logger The logger to use for logging
+         */
+        public Merge(@Nullable File forgeJar, Map<String, String> forgeRelocations, List<String> forgeMixins, @Nullable File fabricJar, Map<String, String> fabricRelocations, @Nullable File quiltJar, Map<String, String> quiltRelocations, Map<CustomContainer, File> customContainerMap, String group, File tempDir, String mergedJarName, List<String> removeDuplicates, Logger logger) {
             this.forgeJar = forgeJar;
             this.forgeRelocations = forgeRelocations;
             this.forgeMixins = forgeMixins;
@@ -86,6 +125,7 @@ public class Forgix {
         /**
          * This is the main merge method
          *
+         * @param returnIfExists If true, will return if the merged jar already exists
          * @return The merged jar file
          * @throws IOException If something went wrong
          */
@@ -113,9 +153,9 @@ public class Forgix {
                 logger.warn("Quilt jar does not exist! You can ignore this if you are not using quilt.\nYou might want to change Forgix settings if something is wrong.");
             }
 
-            for (Map.Entry<ForgixMergeExtension.CustomContainer, File> entry : customContainerMap.entrySet()) {
+            for (Map.Entry<CustomContainer, File> entry : customContainerMap.entrySet()) {
                 if (!entry.getValue().exists()) {
-                    logger.warn(entry.getKey().getProjectName() + " jar does not exist! You can ignore this if you are not using custom containers.\nYou might want to change Forgix settings if something is wrong.");
+                    logger.warn(entry.getKey().loaderName + " jar does not exist! You can ignore this if you are not using custom containers.\nYou might want to change Forgix settings if something is wrong.");
                 }
             }
 
@@ -137,10 +177,10 @@ public class Forgix {
             File quiltTemps = new File(tempDir, "quilt-temps");
 
             customContainerTemps = new HashMap<>();
-            for (Map.Entry<ForgixMergeExtension.CustomContainer, File> entry : customContainerMap.entrySet()) {
+            for (Map.Entry<CustomContainer, File> entry : customContainerMap.entrySet()) {
                 Map<File, File> temp = new HashMap<>();
                 // The first file is the jar, the second file is the temps folder.
-                temp.put(entry.getValue(), new File(tempDir, entry.getKey().getProjectName() + "-temps"));
+                temp.put(entry.getValue(), new File(tempDir, entry.getKey().loaderName + "-temps"));
                 customContainerTemps.put(entry.getKey(), temp);
             }
 
@@ -153,7 +193,7 @@ public class Forgix {
             if (quiltTemps.exists()) FileUtils.deleteQuietly(quiltTemps);
             quiltTemps.mkdirs();
 
-            for (Map.Entry<ForgixMergeExtension.CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
+            for (Map.Entry<CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
                 for (Map.Entry<File, File> entry2 : entry.getValue().entrySet()) {
                     if (entry2.getValue().exists()) FileUtils.deleteQuietly(entry2.getValue());
                     entry2.getValue().mkdirs();
@@ -165,7 +205,7 @@ public class Forgix {
             if (fabricJar != null && fabricJar.exists()) jarUnpacker.unpack(fabricJar.getAbsolutePath(), fabricTemps.getAbsolutePath());
             if (quiltJar != null && quiltJar.exists()) jarUnpacker.unpack(quiltJar.getAbsolutePath(), quiltTemps.getAbsolutePath());
 
-            for (Map.Entry<ForgixMergeExtension.CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
+            for (Map.Entry<CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
                 for (Map.Entry<File, File> entry2 : entry.getValue().entrySet()) {
                     if (entry2.getKey().exists()) jarUnpacker.unpack(entry2.getKey().getAbsolutePath(), entry2.getValue().getAbsolutePath());
                 }
@@ -189,7 +229,7 @@ public class Forgix {
             if (quiltJar != null && quiltJar.exists()) quiltManifest.read(fileInputStream = new FileInputStream(new File(quiltTemps, "META-INF/MANIFEST.MF")));
             if (fileInputStream != null) fileInputStream.close();
 
-            for (Map.Entry<ForgixMergeExtension.CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
+            for (Map.Entry<CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
                 for (Map.Entry<File, File> entry2 : entry.getValue().entrySet()) {
                     Manifest manifest = new Manifest();
                     if (entry2.getKey() != null && entry2.getKey().exists()) {
@@ -253,7 +293,7 @@ public class Forgix {
             if (fabricJar != null && fabricJar.exists()) new File(fabricTemps, "META-INF/MANIFEST.MF").delete();
             if (quiltJar != null && quiltJar.exists()) new File(quiltTemps, "META-INF/MANIFEST.MF").delete();
 
-            for (Map.Entry<ForgixMergeExtension.CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
+            for (Map.Entry<CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
                 for (Map.Entry<File, File> entry2 : entry.getValue().entrySet()) {
                     if (entry2.getKey() != null && entry2.getKey().exists()) new File(entry2.getValue(), "META-INF/MANIFEST.MF").delete();
                 }
@@ -268,7 +308,7 @@ public class Forgix {
             if (fabricJar != null && fabricJar.exists()) FileUtils.copyDirectory(fabricTemps, mergedTemps);
             if (quiltJar != null && quiltJar.exists()) FileUtils.copyDirectory(quiltTemps, mergedTemps);
 
-            for (Map.Entry<ForgixMergeExtension.CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
+            for (Map.Entry<CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
                 for (Map.Entry<File, File> entry2 : entry.getValue().entrySet()) {
                     if (entry2.getKey() != null && entry2.getKey().exists()) FileUtils.copyDirectory(entry2.getValue(), mergedTemps);
                 }
@@ -311,7 +351,7 @@ public class Forgix {
                 quiltJar.delete();
             }
 
-            for (Map.Entry<ForgixMergeExtension.CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
+            for (Map.Entry<CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
                 for (Map.Entry<File, File> entry2 : entry.getValue().entrySet()) {
                     if (entry2.getKey() != null && entry2.getKey().exists()) {
                         FileUtils.deleteQuietly(entry2.getValue());
@@ -339,26 +379,9 @@ public class Forgix {
 
                 List<Relocation> forgeRelocation = new ArrayList<>();
                 forgeRelocation.add(new Relocation(group, "forge." + group));
-                if (forgeRelocations != null)
-                    forgeRelocation.addAll(forgeRelocations.entrySet().stream().map(entry -> new Relocation(entry.getKey(), entry.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
+                if (forgeRelocations != null) forgeRelocation.addAll(forgeRelocations.entrySet().stream().map(entry -> new Relocation(entry.getKey(), entry.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
 
-                AtomicReference<String> architectury = new AtomicReference<>();
-                architectury.set(null);
-
-                JarFile jarFile = new JarFile(forgeJar);
-                jarFile.stream().forEach(jarEntry -> {
-                    if (jarEntry.isDirectory()) {
-                        if (jarEntry.getName().startsWith("architectury_inject")) {
-                            architectury.set(jarEntry.getName());
-                        }
-                    } else {
-                        String firstDirectory = getFirstDirectory(jarEntry.getName());
-                        if (firstDirectory.startsWith("architectury_inject")) {
-                            architectury.set(firstDirectory);
-                        }
-                    }
-                });
-                jarFile.close();
+                AtomicReference<String> architectury = architecturyFetcher(forgeJar);;
 
                 if (architectury.get() != null) forgeRelocation.add(new Relocation(architectury.get(), "forge." + architectury.get()));
 
@@ -375,26 +398,9 @@ public class Forgix {
 
                 List<Relocation> fabricRelocation = new ArrayList<>();
                 fabricRelocation.add(new Relocation(group, "fabric." + group));
-                if (fabricRelocations != null)
-                    fabricRelocation.addAll(fabricRelocations.entrySet().stream().map(entry -> new Relocation(entry.getKey(), entry.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
+                if (fabricRelocations != null) fabricRelocation.addAll(fabricRelocations.entrySet().stream().map(entry -> new Relocation(entry.getKey(), entry.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
 
-                AtomicReference<String> architectury = new AtomicReference<>();
-                architectury.set(null);
-
-                JarFile jarFile = new JarFile(fabricJar);
-                jarFile.stream().forEach(jarEntry -> {
-                    if (jarEntry.isDirectory()) {
-                        if (jarEntry.getName().startsWith("architectury_inject")) {
-                            architectury.set(jarEntry.getName());
-                        }
-                    } else {
-                        String firstDirectory = getFirstDirectory(jarEntry.getName());
-                        if (firstDirectory.startsWith("architectury_inject")) {
-                            architectury.set(firstDirectory);
-                        }
-                    }
-                });
-                jarFile.close();
+                AtomicReference<String> architectury = architecturyFetcher(fabricJar);
 
                 if (architectury.get() != null) fabricRelocation.add(new Relocation(architectury.get(), "fabric." + architectury.get()));
 
@@ -411,25 +417,9 @@ public class Forgix {
 
                 List<Relocation> quiltRelocation = new ArrayList<>();
                 quiltRelocation.add(new Relocation(group, "quilt." + group));
-                if (quiltRelocations != null)
-                    quiltRelocation.addAll(quiltRelocations.entrySet().stream().map(entry -> new Relocation(entry.getKey(), entry.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
+                if (quiltRelocations != null) quiltRelocation.addAll(quiltRelocations.entrySet().stream().map(entry -> new Relocation(entry.getKey(), entry.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
 
-                AtomicReference<String> architectury = new AtomicReference<>();
-                architectury.set(null);
-
-                JarFile jarFile = new JarFile(quiltJar);
-                jarFile.stream().forEach(jarEntry -> {
-                    if (jarEntry.isDirectory()) {
-                        if (jarEntry.getName().startsWith("architectury_inject")) {
-                            architectury.set(jarEntry.getName());
-                        }
-                    } else {
-                        String firstDirectory = getFirstDirectory(jarEntry.getName());
-                        if (firstDirectory.startsWith("architectury_inject")) {
-                            architectury.set(firstDirectory);
-                        }
-                    }
-                });
+                AtomicReference<String> architectury = architecturyFetcher(quiltJar);
 
                 if (architectury.get() != null) quiltRelocation.add(new Relocation(architectury.get(), "quilt." + architectury.get()));
 
@@ -439,36 +429,19 @@ public class Forgix {
                 quiltJar = remappedQuiltJar;
             }
 
-            for (Map.Entry<ForgixMergeExtension.CustomContainer, File> entry : customContainerMap.entrySet()) {
+            for (Map.Entry<CustomContainer, File> entry : customContainerMap.entrySet()) {
                 if (entry.getValue() != null && entry.getValue().exists()) {
-                    String name = entry.getKey().getProjectName();
+                    String name = entry.getKey().loaderName;
                     File remappedCustomJar = new File(tempDir, "tempCustomInMerging_" + name + ".jar");
                     if (remappedCustomJar.exists()) remappedCustomJar.delete();
 
                     List<Relocation> customRelocation = new ArrayList<>();
-                    customRelocation.add(new Relocation(group, name + "." + group));
-                    if (entry.getKey().getAdditionalRelocates() != null)
-                        customRelocation.addAll(entry.getKey().getAdditionalRelocates().entrySet().stream().map(entry1 -> new Relocation(entry1.getKey(), entry1.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
+                    if (entry.getKey().remapMainPackage) customRelocation.add(new Relocation(group, name + "." + group));
+                    if (entry.getKey().additionalRelocates != null) customRelocation.addAll(entry.getKey().additionalRelocates.entrySet().stream().map(entry1 -> new Relocation(entry1.getKey(), entry1.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
 
-                    AtomicReference<String> architectury = new AtomicReference<>();
-                    architectury.set(null);
+                    AtomicReference<String> architectury = architecturyFetcher(entry.getValue());
 
-                    JarFile jarFile = new JarFile(entry.getValue());
-                    jarFile.stream().forEach(jarEntry -> {
-                        if (jarEntry.isDirectory()) {
-                            if (jarEntry.getName().startsWith("architectury_inject")) {
-                                architectury.set(jarEntry.getName());
-                            }
-                        } else {
-                            String firstDirectory = getFirstDirectory(jarEntry.getName());
-                            if (firstDirectory.startsWith("architectury_inject")) {
-                                architectury.set(firstDirectory);
-                            }
-                        }
-                    });
-
-                    if (architectury.get() != null)
-                        customRelocation.add(new Relocation(architectury.get(), name + "." + architectury.get()));
+                    if (architectury.get() != null) customRelocation.add(new Relocation(architectury.get(), name + "." + architectury.get()));
 
                     JarRelocator customRelocator = new JarRelocator(entry.getValue(), remappedCustomJar, customRelocation);
                     customRelocator.run();
@@ -520,26 +493,7 @@ public class Forgix {
 
                 forgeRelocations.put(group, "forge." + group);
                 forgeRelocations.put(group.replace(".", "/"), "forge/" + group.replace(".", "/"));
-                for (File file : listAllTextFiles(forgeTemps)) {
-                    FileInputStream fis = new FileInputStream(file);
-                    Scanner scanner = new Scanner(fis);
-                    StringBuilder sb = new StringBuilder();
-
-                    while (scanner.hasNext()) {
-                        String line = scanner.nextLine();
-                        for (Map.Entry<String, String> entry : forgeRelocations.entrySet()) {
-                            line = line.replace(entry.getKey(), entry.getValue());
-                        }
-                        sb.append(line).append("\n");
-                    }
-
-                    scanner.close();
-                    fis.close();
-                    FileOutputStream fos = new FileOutputStream(file);
-                    fos.write(sb.toString().getBytes());
-                    fos.flush();
-                    fos.close();
-                }
+                replaceAllTextFiles(forgeTemps, forgeRelocations);
             }
 
             if (fabricRelocations == null) fabricRelocations = new HashMap<>();
@@ -570,26 +524,7 @@ public class Forgix {
 
                 fabricRelocations.put(group, "fabric." + group);
                 fabricRelocations.put(group.replace(".", "/"), "fabric/" + group.replace(".", "/"));
-                for (File file : listAllTextFiles(fabricTemps)) {
-                    FileInputStream fis = new FileInputStream(file);
-                    Scanner scanner = new Scanner(fis);
-                    StringBuilder sb = new StringBuilder();
-
-                    while (scanner.hasNext()) {
-                        String line = scanner.nextLine();
-                        for (Map.Entry<String, String> entry : fabricRelocations.entrySet()) {
-                            line = line.replace(entry.getKey(), entry.getValue());
-                        }
-                        sb.append(line).append("\n");
-                    }
-
-                    scanner.close();
-                    fis.close();
-                    FileOutputStream fos = new FileOutputStream(file);
-                    fos.write(sb.toString().getBytes());
-                    fos.flush();
-                    fos.close();
-                }
+                replaceAllTextFiles(fabricTemps, fabricRelocations);
             }
 
             if (quiltRelocations == null) quiltRelocations = new HashMap<>();
@@ -620,61 +555,44 @@ public class Forgix {
 
                 quiltRelocations.put(group, "quilt." + group);
                 quiltRelocations.put(group.replace(".", "/"), "quilt/" + group.replace(".", "/"));
-                for (File file : listAllTextFiles(quiltTemps)) {
-                    FileInputStream fis = new FileInputStream(file);
-                    Scanner scanner = new Scanner(fis);
-                    StringBuilder sb = new StringBuilder();
-
-                    while (scanner.hasNext()) {
-                        String line = scanner.nextLine();
-                        for (Map.Entry<String, String> entry : quiltRelocations.entrySet()) {
-                            line = line.replace(entry.getKey(), entry.getValue());
-                        }
-                        sb.append(line).append("\n");
-                    }
-
-                    scanner.close();
-                    fis.close();
-                    FileOutputStream fos = new FileOutputStream(file);
-                    fos.write(sb.toString().getBytes());
-                    fos.flush();
-                    fos.close();
-                }
+                replaceAllTextFiles(quiltTemps, quiltRelocations);
             }
 
-            for (Map.Entry<ForgixMergeExtension.CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
+            for (Map.Entry<CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
                 for (Map.Entry<File, File> entry2 : entry.getValue().entrySet()) {
                     if (entry2.getKey() != null && entry2.getKey().exists()) {
-                        if (entry.getKey().getAdditionalRelocates() == null) entry.getKey()._setAdditionalRelocates(new HashMap<>());
+                        if (entry.getKey().additionalRelocates == null) entry.getKey().setAdditionalRelocates(new HashMap<>());
                         File customTemps = entry2.getValue();
-                        String name = entry.getKey().getProjectName();
+                        String name = entry.getKey().loaderName;
 
                         for (File file : manifestJars(customTemps)) {
                             File remappedFile = new File(file.getParentFile(), name + "-" + file.getName());
-                            entry.getKey().getAdditionalRelocates().put(file.getName(), remappedFile.getName());
+                            entry.getKey().additionalRelocates.put(file.getName(), remappedFile.getName());
                             file.renameTo(remappedFile);
                         }
 
                         for (File file : listAllPlatformServices(customTemps, group)) {
                             File remappedFile = new File(file.getParentFile(), name + "." + file.getName());
-                            entry.getKey().getAdditionalRelocates().put(file.getName(), remappedFile.getName());
+                            entry.getKey().additionalRelocates.put(file.getName(), remappedFile.getName());
                             file.renameTo(remappedFile);
                         }
 
                         for (File file : listAllMixins(customTemps, true)) {
                             File remappedFile = new File(file.getParentFile(), name + "-" + file.getName());
-                            entry.getKey().getAdditionalRelocates().put(file.getName(), remappedFile.getName());
+                            entry.getKey().additionalRelocates.put(file.getName(), remappedFile.getName());
                             file.renameTo(remappedFile);
                         }
 
                         for (File file : listAllAccessWideners(customTemps)) {
                             File remappedFile = new File(file.getParentFile(), name + "-" + file.getName());
-                            entry.getKey().getAdditionalRelocates().put(file.getName(), remappedFile.getName());
+                            entry.getKey().additionalRelocates.put(file.getName(), remappedFile.getName());
                             file.renameTo(remappedFile);
                         }
 
-                        entry.getKey().getAdditionalRelocates().put(group, name + "." + group);
-                        entry.getKey().getAdditionalRelocates().put(group.replace(".", "/"), name + "/" + group.replace(".", "/"));
+                        if (entry.getKey().remapMainPackage) {
+                            entry.getKey().additionalRelocates.put(group, name + "." + group);
+                            entry.getKey().additionalRelocates.put(group.replace(".", "/"), name + "/" + group.replace(".", "/"));
+                        }
                         for (File file : listAllTextFiles(customTemps)) {
                             FileInputStream fis = new FileInputStream(file);
                             Scanner scanner = new Scanner(fis);
@@ -682,7 +600,7 @@ public class Forgix {
 
                             while (scanner.hasNext()) {
                                 String line = scanner.nextLine();
-                                for (Map.Entry<String, String> entry3 : entry.getKey().getAdditionalRelocates().entrySet()) {
+                                for (Map.Entry<String, String> entry3 : entry.getKey().additionalRelocates.entrySet()) {
                                     line = line.replace(entry3.getKey(), entry3.getValue());
                                 }
                                 sb.append(line).append("\n");
@@ -703,6 +621,9 @@ public class Forgix {
 
         Map<String, String> removeDuplicateRelocationResources = new HashMap<>();
 
+        /**
+         * Sets up the mappings for the duplicates
+         */
         private void setupDuplicates() {
             if (removeDuplicates != null) {
                 for (String duplicate : removeDuplicates) {
@@ -723,10 +644,10 @@ public class Forgix {
                         removeDuplicateRelocationResources.put("quilt/" + duplicatePath, duplicatePath);
                     }
 
-                    for (Map.Entry<ForgixMergeExtension.CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
+                    for (Map.Entry<CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
                         for (Map.Entry<File, File> entry2 : entry.getValue().entrySet()) {
                             if (entry2.getKey() != null && entry2.getKey().exists()) {
-                                String name = entry.getKey().getProjectName();
+                                String name = entry.getKey().loaderName;
                                 removeDuplicateRelocations.put(name + "." + duplicate, duplicate);
                                 removeDuplicateRelocationResources.put(name + "/" + duplicatePath, duplicatePath);
                             }
@@ -754,27 +675,7 @@ public class Forgix {
                     }
                 }
 
-                for (File file : listAllTextFiles(mergedTemps)) {
-                    FileInputStream fis = new FileInputStream(file);
-                    Scanner scanner = new Scanner(fis);
-                    StringBuilder sb = new StringBuilder();
-
-                    while (scanner.hasNext()) {
-                        String line = scanner.nextLine();
-                        for (Map.Entry<String, String> entry : removeDuplicateRelocationResources.entrySet()) {
-                            line = line.replace(entry.getKey(), entry.getValue());
-                        }
-                        sb.append(line).append("\n");
-                    }
-
-
-                    scanner.close();
-                    fis.close();
-                    FileOutputStream fos = new FileOutputStream(file);
-                    fos.write(sb.toString().getBytes());
-                    fos.flush();
-                    fos.close();
-                }
+                replaceAllTextFiles(mergedTemps, removeDuplicateRelocationResources);
             }
         }
 
@@ -816,6 +717,143 @@ public class Forgix {
                         zipFile.removeFile(removeDuplicate.getValue().replace(".", "/") + "/");
                     }
                 }
+            }
+        }
+    }
+
+
+
+
+    public static class Split {
+        private final File inputJar;
+        private final File outputJar;
+        private final String loader;
+        private final File tempDir;
+
+        public Split(File inputJar, File outputJar, String loader, File tempDir) {
+            this.inputJar = inputJar;
+            this.outputJar = outputJar;
+            this.loader = loader;
+            this.tempDir = tempDir;
+        }
+
+        public File split(boolean returnIfExists, Project project) throws IOException {
+            if (outputJar.exists()) {
+                if (returnIfExists) return outputJar;
+                outputJar.delete();
+            }
+
+            tempDir.mkdirs();
+
+            File tempInSplitting = new File(tempDir, FilenameUtils.getBaseName(inputJar.getName()) +
+                    "inSplitting-temp-" + loader + FilenameUtils.getExtension(inputJar.getName()));
+
+            File tempSplittingDir = new File(tempDir, FilenameUtils.getBaseName(inputJar.getName()) +
+                    "inSplitting-temp-" + loader);
+
+            if (tempSplittingDir.exists()) FileUtils.deleteQuietly(tempSplittingDir);
+            tempSplittingDir.mkdirs();
+
+            JarUnpacker jarUnpacker = new JarUnpacker();
+            jarUnpacker.unpack(inputJar.getAbsolutePath(), tempSplittingDir.getAbsolutePath());
+
+            Map<String, String> relocations = new HashMap<>();
+
+            File loaderFolder = new File(tempSplittingDir, loader);
+            if (loaderFolder.exists() && loaderFolder.isDirectory()) {
+                File[] files = loaderFolder.listFiles();
+                if (files != null) {
+                    for (File directory : files) {
+                        if (directory.isDirectory()) {
+                            relocations.put(loader + "." + directory.getName(), directory.getName());
+                        }
+                    }
+                }
+            }
+
+            tempSplittingDir.delete();
+            remap(tempInSplitting, relocations);
+
+            ForgixSplitExtension.getRelocated(project).putAll(relocations);
+            relocations.forEach((key, value) -> relocations.put(key.replace(".", "/"), value));
+
+            jarUnpacker.unpack(tempInSplitting.getAbsolutePath(), tempSplittingDir.getAbsolutePath());
+            remapResources(tempSplittingDir, relocations);
+
+            return new JarPacker().pack(tempSplittingDir.getAbsolutePath(), outputJar.getAbsolutePath());
+        }
+
+        private void remap(File outputJar, Map<String, String> relocations) throws IOException {
+            if (outputJar.exists()) outputJar.delete();
+            outputJar.createNewFile();
+
+            List<Relocation> relocations_ = new ArrayList<>();
+
+            for (Map.Entry<String, String> relocation : relocations.entrySet()) {
+                relocations_.add(new Relocation(relocation.getKey(), relocation.getValue()));
+            }
+
+            JarRelocator jarRelocator = new JarRelocator(inputJar, outputJar, relocations_);
+            jarRelocator.run();
+        }
+
+        private void remapResources(File directory, Map<String, String> relocations) throws IOException {
+            replaceAllTextFiles(directory, relocations);
+        }
+
+        public static class MergeBack {
+            private final File inputJar;
+            private final Map<String, String> relocations;
+            private final File tempDir;
+
+            public MergeBack(File inputJar, Map<String, String> relocations, File tempDir) {
+                this.inputJar = inputJar;
+                this.tempDir = tempDir;
+
+                this.relocations = new HashMap<>();
+                for (Map.Entry<String, String> relocation : relocations.entrySet()) {
+                    this.relocations.put(relocation.getValue(), relocation.getKey());
+                }
+            }
+
+            public void mergeBack() throws IOException {
+                tempDir.mkdirs();
+
+                File tempJar = new File(tempDir, FilenameUtils.getBaseName(inputJar.getName()) +
+                        "mergingBack-temp-" + FilenameUtils.getExtension(inputJar.getName()));
+
+                remap(tempJar);
+
+                File tempJarDir = new File(tempDir, FilenameUtils.getBaseName(inputJar.getName()) + "mergingBack-temp");
+                if (tempJarDir.exists()) FileUtils.deleteQuietly(tempJarDir);
+                tempJarDir.mkdirs();
+
+                JarUnpacker jarUnpacker = new JarUnpacker();
+                jarUnpacker.unpack(tempJar.getAbsolutePath(), tempJarDir.getAbsolutePath());
+
+                relocations.forEach((key, value) -> relocations.put(key.replace(".", "/"), value));
+                remapResources(tempJarDir);
+
+                inputJar.delete();
+                new JarPacker().pack(tempJarDir.getAbsolutePath(), inputJar.getAbsolutePath());
+            }
+
+            private void remap(File outputJar) throws IOException {
+                if (outputJar.exists()) outputJar.delete();
+                outputJar.createNewFile();
+
+                List<Relocation> relocations_ = new ArrayList<>();
+
+                for (Map.Entry<String, String> relocation : relocations.entrySet()) {
+                    relocations_.add(new Relocation(relocation.getKey(), relocation.getValue()));
+                }
+
+                JarRelocator jarRelocator = new JarRelocator(inputJar, outputJar, relocations_);
+                jarRelocator.run();
+            }
+
+            private void remapResources(File directory) throws IOException {
+                replaceAllTextFiles(directory, relocations);
             }
         }
     }

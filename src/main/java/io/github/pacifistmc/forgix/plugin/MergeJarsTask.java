@@ -27,13 +27,13 @@ public class MergeJarsTask extends DefaultTask {
         ForgixMergeExtension.FabricContainer fabricSettings = ForgixPlugin.settings.getFabricContainer();
         ForgixMergeExtension.QuiltContainer quiltSettings = ForgixPlugin.settings.getQuiltContainer();
 
-        List<ForgixMergeExtension.CustomContainer> customSettingsList = ForgixPlugin.settings.getCustomContainers();
+        List<Forgix.Merge.CustomContainer> customSettingsList = ForgixPlugin.settings.getForgixCustomContainers();
 
         Project forgeProject = null;
         Project fabricProject = null;
         Project quiltProject = null;
 
-        Map<Project, ForgixMergeExtension.CustomContainer> customProjects = new HashMap<>();
+        Map<Project, Forgix.Merge.CustomContainer> customProjects = new HashMap<>();
 
         List<Boolean> validation = new ArrayList<>();
         try {
@@ -49,9 +49,9 @@ public class MergeJarsTask extends DefaultTask {
             validation.add(true);
         } catch (NoSuchElementException ignored) { }
 
-        for (ForgixMergeExtension.CustomContainer customSettings : customSettingsList) {
+        for (Forgix.Merge.CustomContainer customSettings : customSettingsList) {
             try {
-                customProjects.put(ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equals(customSettings.getProjectName())).findFirst().get(), customSettings);
+                customProjects.put(ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equals(customSettings.loaderName)).findFirst().get(), customSettings);
                 validation.add(true);
             } catch (NoSuchElementException ignored) { }
         }
@@ -63,78 +63,16 @@ public class MergeJarsTask extends DefaultTask {
         }
         validation.clear();
 
-        File forgeJar = null;
-        File fabricJar = null;
-        File quiltJar = null;
+        Map<Forgix.Merge.CustomContainer, File> customJars = new HashMap<>();
 
-        Map<ForgixMergeExtension.CustomContainer, File> customJars = new HashMap<>();
+        File forgeJar = getProjectJarFile(forgeProject, forgeSettings.getJarLocation());
 
-        if (forgeProject != null) {
-            if (forgeSettings.getJarLocation() != null) {
-                forgeJar = new File(forgeProject.getProjectDir(), forgeSettings.getJarLocation());
-            } else {
-                int i = 0;
-                for (File file : new File(forgeProject.getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            forgeJar = file;
-                        }
-                    }
-                }
-            }
-        }
+        File fabricJar = getProjectJarFile(fabricProject, fabricSettings.getJarLocation());
 
-        if (fabricProject != null) {
-            if (fabricSettings.getJarLocation() != null) {
-                fabricJar = new File(fabricProject.getProjectDir(), fabricSettings.getJarLocation());
-            } else {
-                int i = 0;
-                for (File file : new File(fabricProject.getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            fabricJar = file;
-                        }
-                    }
-                }
-            }
-        }
+        File quiltJar = getProjectJarFile(quiltProject, quiltSettings.getJarLocation());
 
-        if (quiltProject != null) {
-            if (quiltSettings.getJarLocation() != null) {
-                quiltJar = new File(quiltProject.getProjectDir(), quiltSettings.getJarLocation());
-            } else {
-                int i = 0;
-                for (File file : new File(quiltProject.getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            quiltJar = file;
-                        }
-                    }
-                }
-            }
-        }
-
-        for (Map.Entry<Project, ForgixMergeExtension.CustomContainer> entry : customProjects.entrySet()) {
-            if (entry.getValue().getJarLocation() != null) {
-                customJars.put(entry.getValue(), new File(entry.getKey().getProjectDir(), entry.getValue().getJarLocation()));
-            } else {
-                int i = 0;
-                for (File file : new File(entry.getKey().getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            customJars.put(entry.getValue(), file);
-                        }
-                    }
-                }
-            }
+        for (Map.Entry<Project, Forgix.Merge.CustomContainer> entry : customProjects.entrySet()) {
+            customJars.put(entry.getValue(), getProjectJarFile(entry.getKey(), entry.getValue().jarLocation));
         }
 
         File mergedJar = new File(ForgixPlugin.rootProject.getRootDir(), ForgixPlugin.settings.getOutputDir() + File.separator + ForgixPlugin.settings.getMergedJarName());
@@ -148,5 +86,26 @@ public class MergeJarsTask extends DefaultTask {
         } catch (UnsupportedOperationException | IOException | SecurityException ignored) { }
 
         ForgixPlugin.rootProject.getLogger().debug("Merged jar created in " + (System.currentTimeMillis() - time) / 1000.0 + " seconds.");
+    }
+
+    private File getProjectJarFile(Project project, String jarLocation) {
+        File jar = null;
+        if (project != null) {
+            if (jarLocation != null) {
+                return new File(project.getProjectDir(), jarLocation);
+            } else {
+                int i = 0;
+                for (File file : new File(project.getBuildDir(), "libs").listFiles()) {
+                    if (file.isDirectory()) continue;
+                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
+                        if (file.getName().length() < i || i == 0) {
+                            i = file.getName().length();
+                            jar = file;
+                        }
+                    }
+                }
+            }
+        }
+        return jar;
     }
 }

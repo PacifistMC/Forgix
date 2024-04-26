@@ -4,14 +4,74 @@ import org.apache.commons.io.FilenameUtils;
 
 import java.io.*;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.jar.JarFile;
 
 public class FileUtils {
     /**
+     * Finds the architectury_inject directory
+     * @param jar Jar file to check if it contains the architectury_inject directory
+     * @return AtomicReference to the name of the architectury_inject directory, the AtomicReference might contain null if it couldn't find anything
+     * @throws IOException if an I/O error has occurred
+     */
+    public static AtomicReference<String> architecturyFetcher(File jar) throws IOException {
+        AtomicReference<String> architectury = new AtomicReference<>();
+        architectury.set(null);
+
+        JarFile jarFile = new JarFile(jar);
+        jarFile.stream().forEach(jarEntry -> {
+            if (jarEntry.isDirectory()) {
+                if (jarEntry.getName().startsWith("architectury_inject")) {
+                    architectury.set(jarEntry.getName());
+                }
+            } else {
+                String firstDirectory = getFirstDirectory(jarEntry.getName());
+                if (firstDirectory.startsWith("architectury_inject")) {
+                    architectury.set(firstDirectory);
+                }
+            }
+        });
+        jarFile.close();
+        return architectury;
+    }
+
+    /**
+     * Replaces all files that have text in them with the replacements specified
+     * @param directory Directory that contains the text files
+     * @param replacements The replacements
+     * @throws IOException if an I/O error has occurred
+     */
+    public static void replaceAllTextFiles(File directory, Map<String, String> replacements) throws IOException {
+        for (File file : listAllTextFiles(directory)) {
+            FileInputStream fis = new FileInputStream(file);
+            Scanner scanner = new Scanner(fis);
+            StringBuilder sb = new StringBuilder();
+
+            while (scanner.hasNext()) {
+                String line = scanner.nextLine();
+                for (Map.Entry<String, String> entry : replacements.entrySet()) {
+                    line = line.replace(entry.getKey(), entry.getValue());
+                }
+                sb.append(line).append("\n");
+            }
+
+            scanner.close();
+            fis.close();
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(sb.toString().getBytes());
+            fos.flush();
+            fos.close();
+        }
+    }
+
+    /**
      * This is the method that lists all the manifestJars
-     * @param dir That contains the META-INF folder
+     * @param dir Directory that contains the META-INF folder
      * @return A list of all the manifestJars
      */
     public static List<File> manifestJars(File dir) {
@@ -43,7 +103,7 @@ public class FileUtils {
     }
 
     /**
-     * @param dir That should contain the META-INF directory
+     * @param dir Directory that should contain the META-INF directory
      * @return The META-INF directory
      */
     @SuppressWarnings("ResultOfMethodCallIgnored")
@@ -152,6 +212,12 @@ public class FileUtils {
         return wideners;
     }
 
+    /**
+     * Lists specific platform services
+     * @param dir The root directory
+     * @param group The string to check for
+     * @return A list of files containing the platform services which matches with the group
+     */
     public static List<File> listAllPlatformServices(File dir, String group) {
         List<File> services = new ArrayList<>();
 
@@ -188,7 +254,7 @@ public class FileUtils {
     }
 
     /**
-     * @param file To check
+     * @param file File to check
      * @return If the file is a zip file
      */
     public static boolean isZipFile(File file) {
@@ -209,7 +275,7 @@ public class FileUtils {
 
     /**
      * This method checks if the file is a binary file or a text file
-     * @param file to check if it's a binary file or text file
+     * @param file File to check if it's a binary file or text file
      * @return If it's a binary file
      */
     private static boolean isBinary(File file) {
@@ -218,7 +284,7 @@ public class FileUtils {
             BufferedInputStream bis = new BufferedInputStream(fis = new FileInputStream(file));
             int read = bis.read();
             while (read != -1) {
-                if (isMagicCharacter(read)) return true;
+                if (isMagicCharacter(read, file)) return true;
                 read = bis.read();
             }
             bis.close();
@@ -230,15 +296,21 @@ public class FileUtils {
     }
 
     /**
-     * This method returns true if the character is a magic character that's used in binary files
+     * This method returns true if the character is a magic character that's used in binary files but doesn't if it's been detected to be a text file
      * @return If it's a magic character
      */
-    private static boolean isMagicCharacter(int decimal) {
-//        if (decimal > 127) return true;
-//        if (decimal < 37) {
-//            return decimal != 10 && decimal != 13 && decimal != 9 && decimal != 32 && decimal != 11 && decimal != 12 && decimal != 8;
-//        }
-//        return false;
-        return decimal > 127;
+    private static boolean isMagicCharacter(int decimal, File file) {
+        if (decimal > 127) {
+            try {
+                String type = Files.probeContentType(file.toPath());
+                if (type.startsWith("text") || type.contains("json") || type.contains("javascript")) {
+                    return false;
+                }
+            } catch (IOException | SecurityException ignored) { }
+
+            return true;
+        } else {
+            return false;
+        }
     }
 }
