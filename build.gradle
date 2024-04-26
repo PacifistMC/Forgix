@@ -16,6 +16,10 @@ configurations {
 
 repositories {
     mavenCentral()
+    maven {
+        name = 'FirstDarkDev'
+        url = 'https://maven.firstdarkdev.xyz/releases/'
+    }
 }
 
 dependencies {
@@ -31,7 +35,7 @@ dependencies {
     shadowMe 'org.ow2.asm:asm-commons:9.7'
     shadowMe 'net.lingala.zip4j:zip4j:2.11.5'
 
-    shadowMe fileTree(dir: 'libs', include: ['*.jar']) // https://bitbucket.org/ReaperSoon/maven-repo/src/367c0bcb2749/fr/stevecohen/jarmanager
+    shadowMe 'fr.stevecohen.jarmanager:JarManager:0.5.0' // https://bitbucket.org/ReaperSoon/maven-repo/src/367c0bcb2749/fr/stevecohen/jarmanager
 }
 
 shadowJar {
@@ -61,7 +65,7 @@ gradlePlugin {
 pluginBundle {
     website = 'https://github.com/PacifistMC'
     vcsUrl = 'https://github.com/PacifistMC/Forgix'
-    tags = ['forge', 'minecraftforge', 'merge', 'jars', 'fabric', 'fabricmc', 'quilt', 'quiltmc', 'minecraft', 'architectury', 'forgix', 'pacifistmc']
+    tags = ['forge', 'minecraftforge', 'merge', 'jars', 'fabric', 'fabricmc', 'quilt', 'quiltmc', 'neoforge', 'neoforged', 'minecraft', 'architectury', 'forgix', 'pacifistmc']
 }
 
 publishing {
@@ -71,6 +75,11 @@ publishing {
             url = '../local-plugin-repository'
         }
     }
+}
+
+tasks.withType(JavaCompile) {
+    sourceCompatibility = 8
+    options.release = 8
 }
 
 jar.finalizedBy(shadowJar)
