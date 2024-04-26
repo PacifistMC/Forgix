@@ -83,6 +83,23 @@ public class ForgixMergeExtension {
         return forgeContainer;
     }
 
+    NeoForgeContainer neoForgeContainer;
+
+    public NeoForgeContainer neoforge(Closure<NeoForgeContainer> closure) {
+        neoForgeContainer = new NeoForgeContainer();
+        ForgixPlugin.rootProject.configure(neoForgeContainer, closure);
+        return neoForgeContainer;
+    }
+
+    public void setNeoForgeContainer(NeoForgeContainer neoForgeContainer) {
+        this.neoForgeContainer = neoForgeContainer;
+    }
+
+    public NeoForgeContainer getNeoForgeContainer() {
+        if (neoForgeContainer == null) neoForgeContainer = new NeoForgeContainer();
+        return neoForgeContainer;
+    }
+
     FabricContainer fabricContainer;
 
     public FabricContainer fabric(Closure<FabricContainer> closure) {
@@ -151,6 +168,48 @@ public class ForgixMergeExtension {
     @SuppressWarnings("InnerClassMayBeStatic")
     public class ForgeContainer {
         String projectName = "forge";
+        String jarLocation;
+        Map<String, String> additionalRelocates;
+        List<String> mixins;
+
+        public String getProjectName() {
+            return projectName;
+        }
+
+        public void setProjectName(String projectName) {
+            this.projectName = projectName;
+        }
+
+        public String getJarLocation() {
+            return jarLocation;
+        }
+
+        public void setJarLocation(String jarLocation) {
+            this.jarLocation = jarLocation;
+        }
+
+        public Map<String, String> getAdditionalRelocates() {
+            return additionalRelocates;
+        }
+
+        public void additionalRelocate(String from, String to) {
+            if (this.additionalRelocates == null) this.additionalRelocates = new java.util.HashMap<>();
+            this.additionalRelocates.put(from, to);
+        }
+
+        public List<String> getMixins() {
+            return mixins;
+        }
+
+        public void mixin(String mixin) {
+            if (this.mixins == null) this.mixins = new java.util.ArrayList<>();
+            this.mixins.add(mixin);
+        }
+    }
+
+    @SuppressWarnings("InnerClassMayBeStatic")
+    public class NeoForgeContainer {
+        String projectName = "neoforge";
         String jarLocation;
         Map<String, String> additionalRelocates;
         List<String> mixins;

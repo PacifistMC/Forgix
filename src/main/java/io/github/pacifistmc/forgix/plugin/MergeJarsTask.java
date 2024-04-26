@@ -24,12 +24,14 @@ public class MergeJarsTask extends DefaultTask {
             return;
         }
         ForgixMergeExtension.ForgeContainer forgeSettings = ForgixPlugin.settings.getForgeContainer();
+        ForgixMergeExtension.NeoForgeContainer neoforgeSettings = ForgixPlugin.settings.getNeoForgeContainer();
         ForgixMergeExtension.FabricContainer fabricSettings = ForgixPlugin.settings.getFabricContainer();
         ForgixMergeExtension.QuiltContainer quiltSettings = ForgixPlugin.settings.getQuiltContainer();
 
         List<ForgixMergeExtension.CustomContainer> customSettingsList = ForgixPlugin.settings.getCustomContainers();
 
         Project forgeProject = null;
+        Project neoforgeProject = null;
         Project fabricProject = null;
         Project quiltProject = null;
 
@@ -40,6 +42,10 @@ public class MergeJarsTask extends DefaultTask {
             forgeProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equalsIgnoreCase(forgeSettings.getProjectName())).findFirst().get();
             validation.add(true);
         } catch (NoSuchElementException ignored) { }
+        try {
+            neoforgeProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equalsIgnoreCase(neoforgeSettings.getProjectName())).findFirst().get();
+            validation.add(true);
+        } catch (NoSuchElementException ignored) {}
         try {
             fabricProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equalsIgnoreCase(fabricSettings.getProjectName())).findFirst().get();
             validation.add(true);
@@ -64,6 +70,7 @@ public class MergeJarsTask extends DefaultTask {
         validation.clear();
 
         File forgeJar = null;
+        File neoforgeJar = null;
         File fabricJar = null;
         File quiltJar = null;
 
@@ -73,16 +80,15 @@ public class MergeJarsTask extends DefaultTask {
             if (forgeSettings.getJarLocation() != null) {
                 forgeJar = new File(forgeProject.getProjectDir(), forgeSettings.getJarLocation());
             } else {
-                int i = 0;
-                for (File file : new File(forgeProject.getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            forgeJar = file;
-                        }
-                    }
-                }
+                forgeJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(forgeProject.getBuildDir(), "libs"));
+            }
+        }
+
+        if (neoforgeProject != null) {
+            if (neoforgeSettings.getJarLocation() != null) {
+                neoforgeJar = new File(neoforgeProject.getProjectDir(), neoforgeSettings.getJarLocation());
+            } else {
+                neoforgeJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(neoforgeProject.getBuildDir(), "libs"));
             }
         }
 
@@ -90,16 +96,7 @@ public class MergeJarsTask extends DefaultTask {
             if (fabricSettings.getJarLocation() != null) {
                 fabricJar = new File(fabricProject.getProjectDir(), fabricSettings.getJarLocation());
             } else {
-                int i = 0;
-                for (File file : new File(fabricProject.getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            fabricJar = file;
-                        }
-                    }
-                }
+                fabricJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(fabricProject.getBuildDir(), "libs"));
             }
         }
 
@@ -107,16 +104,7 @@ public class MergeJarsTask extends DefaultTask {
             if (quiltSettings.getJarLocation() != null) {
                 quiltJar = new File(quiltProject.getProjectDir(), quiltSettings.getJarLocation());
             } else {
-                int i = 0;
-                for (File file : new File(quiltProject.getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            quiltJar = file;
-                        }
-                    }
-                }
+                quiltJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(quiltProject.getBuildDir(), "libs"));
             }
         }
 
@@ -124,16 +112,7 @@ public class MergeJarsTask extends DefaultTask {
             if (entry.getValue().getJarLocation() != null) {
                 customJars.put(entry.getValue(), new File(entry.getKey().getProjectDir(), entry.getValue().getJarLocation()));
             } else {
-                int i = 0;
-                for (File file : new File(entry.getKey().getBuildDir(), "libs").listFiles()) {
-                    if (file.isDirectory()) continue;
-                    if (io.github.pacifistmc.forgix.utils.FileUtils.isZipFile(file)) {
-                        if (file.getName().length() < i || i == 0) {
-                            i = file.getName().length();
-                            customJars.put(entry.getValue(), file);
-                        }
-                    }
-                }
+                customJars.put(entry.getValue(), io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(entry.getKey().getBuildDir(), "libs")));
             }
         }
 
@@ -141,7 +120,7 @@ public class MergeJarsTask extends DefaultTask {
         if (mergedJar.exists()) FileUtils.forceDelete(mergedJar);
         if (!mergedJar.getParentFile().exists()) mergedJar.getParentFile().mkdirs();
 
-        Path tempMergedJarPath = new Forgix.Merge(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), customJars, ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName(), ForgixPlugin.settings.getRemoveDuplicates(), ForgixPlugin.rootProject.getLogger()).merge(false).toPath();
+        Path tempMergedJarPath = new Forgix.Merge(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), neoforgeJar, neoforgeSettings.getAdditionalRelocates(), neoforgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), customJars, ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName(), ForgixPlugin.settings.getRemoveDuplicates(), ForgixPlugin.rootProject.getLogger()).merge(false).toPath();
         Files.move(tempMergedJarPath, mergedJar.toPath(), StandardCopyOption.REPLACE_EXISTING);
         try {
             Files.setPosixFilePermissions(mergedJar.toPath(), Forgix.Merge.perms);

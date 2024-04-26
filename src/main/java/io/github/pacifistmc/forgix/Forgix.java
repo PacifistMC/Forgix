@@ -34,7 +34,7 @@ public class Forgix {
     public static final String manifestVersionKey = "Forgix-Version";
 
     public static class Merge {
-        private final String version = "1.2.6";
+        private final String version = "1.2.7";
         public static Set<PosixFilePermission> perms;
 
         static {
@@ -53,6 +53,9 @@ public class Forgix {
         private File forgeJar;
         private Map<String, String> forgeRelocations;
         private List<String> forgeMixins;
+        private File neoforgeJar;
+        private Map<String, String> neoforgeRelocations;
+        private List<String> neoforgeMixins;
         private File fabricJar;
         private Map<String, String> fabricRelocations;
         private File quiltJar;
@@ -67,10 +70,13 @@ public class Forgix {
         private final Logger logger;
         private final Map<String, String> removeDuplicateRelocations = new HashMap<>();
 
-        public Merge(@Nullable File forgeJar, Map<String, String> forgeRelocations, List<String> forgeMixins, @Nullable File fabricJar, Map<String, String> fabricRelocations, @Nullable File quiltJar, Map<String, String> quiltRelocations, Map<ForgixMergeExtension.CustomContainer, File> customContainerMap, String group, File tempDir, String mergedJarName, List<String> removeDuplicates, Logger logger) {
+        public Merge(@Nullable File forgeJar, Map<String, String> forgeRelocations, List<String> forgeMixins, @Nullable File neoforgeJar, Map<String, String> neoforgeRelocations, List<String> neoforgeMixins, @Nullable File fabricJar, Map<String, String> fabricRelocations, @Nullable File quiltJar, Map<String, String> quiltRelocations, Map<ForgixMergeExtension.CustomContainer, File> customContainerMap, String group, File tempDir, String mergedJarName, List<String> removeDuplicates, Logger logger) {
             this.forgeJar = forgeJar;
             this.forgeRelocations = forgeRelocations;
             this.forgeMixins = forgeMixins;
+            this.neoforgeJar = neoforgeJar;
+            this.neoforgeRelocations = neoforgeRelocations;
+            this.neoforgeMixins = neoforgeMixins;
             this.fabricJar = fabricJar;
             this.fabricRelocations = fabricRelocations;
             this.quiltJar = quiltJar;
@@ -97,12 +103,16 @@ public class Forgix {
             }
 
             tempDir.mkdirs();
-            if (forgeJar == null && fabricJar == null && quiltJar == null && customContainerMap.isEmpty()) {
+            if (forgeJar == null && neoforgeJar == null && fabricJar == null && quiltJar == null && customContainerMap.isEmpty()) {
                 throw new IllegalArgumentException("No jars were provided.");
             }
 
             if (forgeJar != null && !forgeJar.exists()) {
                 logger.warn("Forge jar does not exist! You can ignore this if you are not using forge.\nYou might want to change Forgix settings if something is wrong.");
+            }
+
+            if (neoforgeJar != null && !neoforgeJar.exists()) {
+                logger.warn("NeoForge jar does not exist! You can ignore this if you are not using neoforge.\nYou might want to change Forgix settings if something is wrong.");
             }
 
             if (fabricJar != null && !fabricJar.exists()) {
@@ -123,6 +133,7 @@ public class Forgix {
 
             logger.info("\nSettings:\n" +
                     "Forge: " + (forgeJar == null || !forgeJar.exists() ? "No\n" : "Yes\n") +
+                    "NeoForge: " + (neoforgeJar == null || !neoforgeJar.exists() ? "No\n" : "Yes\n") +
                     "Fabric: " + (fabricJar == null || !fabricJar.exists() ? "No\n" : "Yes\n") +
                     "Quilt: " + (quiltJar == null || !quiltJar.exists() ? "No\n" : "Yes\n") +
                     "Custom Containers: " + (customContainerMap.isEmpty() ? "No\n" : "Yes\n") +
@@ -134,6 +145,7 @@ public class Forgix {
 
             File fabricTemps = new File(tempDir, "fabric-temps");
             File forgeTemps = new File(tempDir, "forge-temps");
+            File neoforgeTemps = new File(tempDir, "neoforge-temps");
             File quiltTemps = new File(tempDir, "quilt-temps");
 
             customContainerTemps = new HashMap<>();
@@ -150,6 +162,9 @@ public class Forgix {
             if (forgeTemps.exists()) FileUtils.deleteQuietly(forgeTemps);
             forgeTemps.mkdirs();
 
+            if (neoforgeTemps.exists()) FileUtils.deleteQuietly(neoforgeTemps);
+            neoforgeTemps.mkdirs();
+
             if (quiltTemps.exists()) FileUtils.deleteQuietly(quiltTemps);
             quiltTemps.mkdirs();
 
@@ -162,6 +177,7 @@ public class Forgix {
 
             JarUnpacker jarUnpacker = new JarUnpacker();
             if (forgeJar != null && forgeJar.exists()) jarUnpacker.unpack(forgeJar.getAbsolutePath(), forgeTemps.getAbsolutePath());
+            if (neoforgeJar != null && neoforgeJar.exists()) jarUnpacker.unpack(neoforgeJar.getAbsolutePath(), neoforgeTemps.getAbsolutePath());
             if (fabricJar != null && fabricJar.exists()) jarUnpacker.unpack(fabricJar.getAbsolutePath(), fabricTemps.getAbsolutePath());
             if (quiltJar != null && quiltJar.exists()) jarUnpacker.unpack(quiltJar.getAbsolutePath(), quiltTemps.getAbsolutePath());
 
@@ -177,12 +193,15 @@ public class Forgix {
 
             Manifest mergedManifest = new Manifest();
             Manifest forgeManifest = new Manifest();
+            Manifest neoforgeManifest = new Manifest();
             Manifest fabricManifest = new Manifest();
             Manifest quiltManifest = new Manifest();
             List<Manifest> customContainerManifests = new ArrayList<>();
 
             FileInputStream fileInputStream = null;
             if (forgeJar != null && forgeJar.exists()) forgeManifest.read(fileInputStream = new FileInputStream(new File(forgeTemps, "META-INF/MANIFEST.MF")));
+            if (fileInputStream != null) fileInputStream.close();
+            if (neoforgeJar != null && neoforgeJar.exists()) neoforgeManifest.read(fileInputStream = new FileInputStream(new File(neoforgeTemps, "META-INF/MANIFEST.MF")));
             if (fileInputStream != null) fileInputStream.close();
             if (fabricJar != null && fabricJar.exists()) fabricManifest.read(fileInputStream = new FileInputStream(new File(fabricTemps, "META-INF/MANIFEST.MF")));
             if (fileInputStream != null) fileInputStream.close();
@@ -201,6 +220,7 @@ public class Forgix {
             }
 
             forgeManifest.getMainAttributes().forEach((key, value) -> mergedManifest.getMainAttributes().putValue(key.toString(), value.toString()));
+            neoforgeManifest.getMainAttributes().forEach((key, value) -> mergedManifest.getMainAttributes().putValue(key.toString(), value.toString()));
             fabricManifest.getMainAttributes().forEach((key, value) -> mergedManifest.getMainAttributes().putValue(key.toString(), value.toString()));
             quiltManifest.getMainAttributes().forEach((key, value) -> mergedManifest.getMainAttributes().putValue(key.toString(), value.toString()));
 
@@ -220,7 +240,11 @@ public class Forgix {
                 }
 
                 for (String mixin : mixins) {
-                    remappedMixin.add("forge-" + mixin);
+                    if (mixin.contains("neoforge") || mixin.contains("neo")) {
+                        remappedMixin.add("neoforge-" + mixin);
+                    } else {
+                        remappedMixin.add("forge-" + mixin);
+                    }
                 }
 
                 mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", remappedMixin));
@@ -235,7 +259,16 @@ public class Forgix {
                 if (!forgeMixins.isEmpty()) mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.forgeMixins));
             }
 
-            remapResources(forgeTemps, fabricTemps, quiltTemps);
+            if (this.neoforgeMixins != null) {
+                List<String> newNeoForgeMixins = new ArrayList<>();
+                for (String mixin : this.neoforgeMixins) {
+                    newNeoForgeMixins.add("neoforge-" + mixin);
+                }
+                this.neoforgeMixins = newNeoForgeMixins;
+                if (!neoforgeMixins.isEmpty()) mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.neoforgeMixins));
+            }
+
+            remapResources(forgeTemps, neoforgeTemps, fabricTemps, quiltTemps);
 
             if (this.forgeMixins != null && mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
                 logger.debug("Couldn't detect forge mixins. You can ignore this if you are not using mixins with forge.\n" +
@@ -247,9 +280,20 @@ public class Forgix {
                 }
             }
 
+            if (this.neoforgeMixins != null && mergedManifest.getMainAttributes().getValue("MixinConfigs") == null) {
+                logger.debug("Couldn't detect neoforge mixins. You can ignore this if you are not using mixins with neoforge.\n" +
+                        "If this is an issue then you can configure mixins manually\n" +
+                        "Though we'll try to detect them automatically.\n");
+                if (!neoforgeMixins.isEmpty()) {
+                    logger.debug("Detected neoforge mixins: " + String.join(",", this.neoforgeMixins) + "\n");
+                    mergedManifest.getMainAttributes().putValue("MixinConfigs", String.join(",", this.neoforgeMixins));
+                }
+            }
+
             mergedManifest.getMainAttributes().putValue(manifestVersionKey, version);
 
             if (forgeJar != null && forgeJar.exists()) new File(forgeTemps, "META-INF/MANIFEST.MF").delete();
+            if (neoforgeJar != null && neoforgeJar.exists()) new File(neoforgeTemps, "META-INF/MANIFEST.MF").delete();
             if (fabricJar != null && fabricJar.exists()) new File(fabricTemps, "META-INF/MANIFEST.MF").delete();
             if (quiltJar != null && quiltJar.exists()) new File(quiltTemps, "META-INF/MANIFEST.MF").delete();
 
@@ -265,6 +309,7 @@ public class Forgix {
             outputStream.close();
 
             if (forgeJar != null && forgeJar.exists()) FileUtils.copyDirectory(forgeTemps, mergedTemps);
+            if (neoforgeJar != null && neoforgeJar.exists()) FileUtils.copyDirectory(neoforgeTemps, mergedTemps);
             if (fabricJar != null && fabricJar.exists()) FileUtils.copyDirectory(fabricTemps, mergedTemps);
             if (quiltJar != null && quiltJar.exists()) FileUtils.copyDirectory(quiltTemps, mergedTemps);
 
@@ -301,6 +346,10 @@ public class Forgix {
             if (forgeJar != null && forgeJar.exists()) {
                 FileUtils.deleteQuietly(forgeTemps);
                 forgeJar.delete();
+            }
+            if (neoforgeJar != null && neoforgeJar.exists()) {
+                FileUtils.deleteQuietly(neoforgeTemps);
+                neoforgeJar.delete();
             }
             if (fabricJar != null && fabricJar.exists()) {
                 FileUtils.deleteQuietly(fabricTemps);
@@ -366,6 +415,42 @@ public class Forgix {
                 forgeRelocator.run();
 
                 forgeJar = remappedForgeJar;
+            }
+
+            if (neoforgeJar != null && neoforgeJar.exists()) {
+                File remappedNeoForgeJar = new File(tempDir, "tempNeoForgeInMerging.jar");
+                if (remappedNeoForgeJar.exists()) remappedNeoForgeJar.delete();
+                remappedNeoForgeJar.createNewFile();
+
+                List<Relocation> neoforgeRelocation = new ArrayList<>();
+                neoforgeRelocation.add(new Relocation(group, "neoforge." + group));
+                if (neoforgeRelocations != null)
+                    neoforgeRelocation.addAll(neoforgeRelocations.entrySet().stream().map(entry -> new Relocation(entry.getKey(), entry.getValue())).collect(ArrayList::new, ArrayList::add, ArrayList::addAll));
+
+                AtomicReference<String> architectury = new AtomicReference<>();
+                architectury.set(null);
+
+                JarFile jarFile = new JarFile(neoforgeJar);
+                jarFile.stream().forEach(jarEntry -> {
+                    if (jarEntry.isDirectory()) {
+                        if (jarEntry.getName().startsWith("architectury_inject")) {
+                            architectury.set(jarEntry.getName());
+                        }
+                    } else {
+                        String firstDirectory = getFirstDirectory(jarEntry.getName());
+                        if (firstDirectory.startsWith("architectury_inject")) {
+                            architectury.set(firstDirectory);
+                        }
+                    }
+                });
+                jarFile.close();
+
+                if (architectury.get() != null) neoforgeRelocation.add(new Relocation(architectury.get(), "neoforge." + architectury.get()));
+
+                JarRelocator neoforgeJarRelocator = new JarRelocator(neoforgeJar, remappedNeoForgeJar, neoforgeRelocation);
+                neoforgeJarRelocator.run();
+
+                neoforgeJar = remappedNeoForgeJar;
             }
 
             if (fabricJar != null && fabricJar.exists()) {
@@ -481,15 +566,18 @@ public class Forgix {
         /**
          * This is the second remapping method
          * This basically remaps all resources such as mixins, manifestJars, etc.
-         * This method also finds all the forge mixins for you if not detected
+         * This method also finds all the forge/neoforge mixins for you if not detected
          *
          * @param forgeTemps  The extracted forge jar directory
+         * @param neoforgeTemps The extracted neoforge jar directory
          * @param fabricTemps The extracted fabric jar directory
          * @param quiltTemps  The extracted quilt jar directory
          * @throws IOException If something went wrong
          */
-        private void remapResources(File forgeTemps, File fabricTemps, File quiltTemps) throws IOException {
+        private void remapResources(File forgeTemps, File neoforgeTemps, File fabricTemps, File quiltTemps) throws IOException {
             if (forgeRelocations == null) forgeRelocations = new HashMap<>();
+            if (neoforgeRelocations == null) neoforgeRelocations = new HashMap<>();
+
             if (forgeJar != null && forgeJar.exists()) {
                 for (File file : manifestJars(forgeTemps)) {
                     File remappedFile = new File(file.getParentFile(), "forge-" + file.getName());
@@ -528,6 +616,58 @@ public class Forgix {
                     while (scanner.hasNext()) {
                         String line = scanner.nextLine();
                         for (Map.Entry<String, String> entry : forgeRelocations.entrySet()) {
+                            line = line.replace(entry.getKey(), entry.getValue());
+                        }
+                        sb.append(line).append("\n");
+                    }
+
+                    scanner.close();
+                    fis.close();
+                    FileOutputStream fos = new FileOutputStream(file);
+                    fos.write(sb.toString().getBytes());
+                    fos.flush();
+                    fos.close();
+                }
+            }
+
+            if (neoforgeJar != null && neoforgeJar.exists()) {
+                for (File file : manifestJars(neoforgeTemps)) {
+                    File remappedFile = new File(file.getParentFile(), "neoforge-" + file.getName());
+                    neoforgeRelocations.put(file.getName(), remappedFile.getName());
+                    file.renameTo(remappedFile);
+                }
+
+                for (File file : listAllPlatformServices(neoforgeTemps, group)) {
+                    File remappedFile = new File(file.getParentFile(), "neoforge." + file.getName());
+                    neoforgeRelocations.put(file.getName(), remappedFile.getName());
+                    file.renameTo(remappedFile);
+                }
+
+                neoforgeMixins = new ArrayList<>();
+                for (File file : listAllMixins(neoforgeTemps, false)) {
+                    File remappedFile = new File(file.getParentFile(), "neoforge-" + file.getName());
+                    neoforgeRelocations.put(file.getName(), remappedFile.getName());
+                    file.renameTo(remappedFile);
+
+                    neoforgeMixins.add(remappedFile.getName());
+                }
+
+                for (File file : listAllRefmaps(neoforgeTemps)) {
+                    File remappedFile = new File(file.getParentFile(), "neoforge-" + file.getName());
+                    neoforgeRelocations.put(file.getName(), remappedFile.getName());
+                    file.renameTo(remappedFile);
+                }
+
+                neoforgeRelocations.put(group, "neoforge." + group);
+                neoforgeRelocations.put(group.replace(".", "/"), "neoforge/" + group.replace(".", "/"));
+                for (File file : listAllTextFiles(neoforgeTemps)) {
+                    FileInputStream fis = new FileInputStream(file);
+                    Scanner scanner = new Scanner(fis);
+                    StringBuilder sb = new StringBuilder();
+
+                    while (scanner.hasNext()) {
+                        String line = scanner.nextLine();
+                        for (Map.Entry<String, String> entry : neoforgeRelocations.entrySet()) {
                             line = line.replace(entry.getKey(), entry.getValue());
                         }
                         sb.append(line).append("\n");
@@ -711,6 +851,11 @@ public class Forgix {
                     if (forgeJar != null && forgeJar.exists()) {
                         removeDuplicateRelocations.put("forge." + duplicate, duplicate);
                         removeDuplicateRelocationResources.put("forge/" + duplicatePath, duplicatePath);
+                    }
+
+                    if (neoforgeJar != null && neoforgeJar.exists()) {
+                        removeDuplicateRelocations.put("neoforge." + duplicate, duplicate);
+                        removeDuplicateRelocationResources.put("neoforge/" + duplicatePath, duplicatePath);
                     }
 
                     if (fabricJar != null && fabricJar.exists()) {

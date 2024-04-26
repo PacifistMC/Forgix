@@ -15,7 +15,7 @@ public class ForgixPlugin implements Plugin<Project> {
         settings = rootProject.getExtensions().create("forgix", ForgixMergeExtension.class);
         rootProject.getTasks().register("mergeJars", MergeJarsTask.class).configure(forgix -> {
             forgix.setGroup("forgix");
-            forgix.setDescription("Merges Fabric (also Quilt) and Forge jars into a single jar!");
+            forgix.setDescription("Merges Fabric (also Quilt), Forge and NeoForge jars into a single jar!");
         });
     }
 }
