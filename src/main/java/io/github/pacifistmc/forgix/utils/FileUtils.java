@@ -5,11 +5,42 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 
 public class FileUtils {
+    /**
+     * Replaces all files that have text in them with the replacements specified
+     * @param directory Directory that contains the text files
+     * @param replacements The replacements
+     * @throws IOException if an I/O error has occurred
+     */
+    public static void replaceAllTextFiles(File directory, Map<String, String> replacements) throws IOException {
+        for (File file : listAllTextFiles(directory)) {
+            FileInputStream fis = new FileInputStream(file);
+            Scanner scanner = new Scanner(fis);
+            StringBuilder sb = new StringBuilder();
+
+            while (scanner.hasNext()) {
+                String line = scanner.nextLine();
+                for (Map.Entry<String, String> entry : replacements.entrySet()) {
+                    line = line.replace(entry.getKey(), entry.getValue());
+                }
+                sb.append(line).append("\n");
+            }
+
+            scanner.close();
+            fis.close();
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(sb.toString().getBytes());
+            fos.flush();
+            fos.close();
+        }
+    }
+
     /**
      * This is the method that lists all the manifestJars
      * @param dir That contains the META-INF folder
@@ -219,7 +250,7 @@ public class FileUtils {
             BufferedInputStream bis = new BufferedInputStream(fis = new FileInputStream(file));
             int read = bis.read();
             while (read != -1) {
-                if (isMagicCharacter(read)) return true;
+                if (isMagicCharacter(read, file)) return true;
                 read = bis.read();
             }
             bis.close();
@@ -270,15 +301,21 @@ public class FileUtils {
     }
 
     /**
-     * This method returns true if the character is a magic character that's used in binary files
+     * This method returns true if the character is a magic character that's used in binary files but doesn't if it's been detected to be a text file
      * @return If it's a magic character
      */
-    private static boolean isMagicCharacter(int decimal) {
-//        if (decimal > 127) return true;
-//        if (decimal < 37) {
-//            return decimal != 10 && decimal != 13 && decimal != 9 && decimal != 32 && decimal != 11 && decimal != 12 && decimal != 8;
-//        }
-//        return false;
-        return decimal > 127;
+    private static boolean isMagicCharacter(int decimal, File file) {
+        if (decimal > 127) {
+            try {
+                String type = Files.probeContentType(file.toPath());
+                if (type.startsWith("text") || type.contains("json") || type.contains("javascript")) {
+                    return false;
+                }
+            } catch (IOException | SecurityException ignored) { }
+
+            return true;
+        } else {
+            return false;
+        }
     }
 }

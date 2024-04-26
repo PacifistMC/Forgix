@@ -608,26 +608,7 @@ public class Forgix {
 
                 forgeRelocations.put(group, "forge." + group);
                 forgeRelocations.put(group.replace(".", "/"), "forge/" + group.replace(".", "/"));
-                for (File file : listAllTextFiles(forgeTemps)) {
-                    FileInputStream fis = new FileInputStream(file);
-                    Scanner scanner = new Scanner(fis);
-                    StringBuilder sb = new StringBuilder();
-
-                    while (scanner.hasNext()) {
-                        String line = scanner.nextLine();
-                        for (Map.Entry<String, String> entry : forgeRelocations.entrySet()) {
-                            line = line.replace(entry.getKey(), entry.getValue());
-                        }
-                        sb.append(line).append("\n");
-                    }
-
-                    scanner.close();
-                    fis.close();
-                    FileOutputStream fos = new FileOutputStream(file);
-                    fos.write(sb.toString().getBytes());
-                    fos.flush();
-                    fos.close();
-                }
+                replaceAllTextFiles(forgeTemps, forgeRelocations);
             }
 
             if (neoforgeJar != null && neoforgeJar.exists()) {
@@ -660,26 +641,7 @@ public class Forgix {
 
                 neoforgeRelocations.put(group, "neoforge." + group);
                 neoforgeRelocations.put(group.replace(".", "/"), "neoforge/" + group.replace(".", "/"));
-                for (File file : listAllTextFiles(neoforgeTemps)) {
-                    FileInputStream fis = new FileInputStream(file);
-                    Scanner scanner = new Scanner(fis);
-                    StringBuilder sb = new StringBuilder();
-
-                    while (scanner.hasNext()) {
-                        String line = scanner.nextLine();
-                        for (Map.Entry<String, String> entry : neoforgeRelocations.entrySet()) {
-                            line = line.replace(entry.getKey(), entry.getValue());
-                        }
-                        sb.append(line).append("\n");
-                    }
-
-                    scanner.close();
-                    fis.close();
-                    FileOutputStream fos = new FileOutputStream(file);
-                    fos.write(sb.toString().getBytes());
-                    fos.flush();
-                    fos.close();
-                }
+                replaceAllTextFiles(neoforgeTemps, neoforgeRelocations);
             }
 
             if (fabricRelocations == null) fabricRelocations = new HashMap<>();
@@ -710,26 +672,7 @@ public class Forgix {
 
                 fabricRelocations.put(group, "fabric." + group);
                 fabricRelocations.put(group.replace(".", "/"), "fabric/" + group.replace(".", "/"));
-                for (File file : listAllTextFiles(fabricTemps)) {
-                    FileInputStream fis = new FileInputStream(file);
-                    Scanner scanner = new Scanner(fis);
-                    StringBuilder sb = new StringBuilder();
-
-                    while (scanner.hasNext()) {
-                        String line = scanner.nextLine();
-                        for (Map.Entry<String, String> entry : fabricRelocations.entrySet()) {
-                            line = line.replace(entry.getKey(), entry.getValue());
-                        }
-                        sb.append(line).append("\n");
-                    }
-
-                    scanner.close();
-                    fis.close();
-                    FileOutputStream fos = new FileOutputStream(file);
-                    fos.write(sb.toString().getBytes());
-                    fos.flush();
-                    fos.close();
-                }
+                replaceAllTextFiles(fabricTemps, fabricRelocations);
             }
 
             if (quiltRelocations == null) quiltRelocations = new HashMap<>();
@@ -760,26 +703,7 @@ public class Forgix {
 
                 quiltRelocations.put(group, "quilt." + group);
                 quiltRelocations.put(group.replace(".", "/"), "quilt/" + group.replace(".", "/"));
-                for (File file : listAllTextFiles(quiltTemps)) {
-                    FileInputStream fis = new FileInputStream(file);
-                    Scanner scanner = new Scanner(fis);
-                    StringBuilder sb = new StringBuilder();
-
-                    while (scanner.hasNext()) {
-                        String line = scanner.nextLine();
-                        for (Map.Entry<String, String> entry : quiltRelocations.entrySet()) {
-                            line = line.replace(entry.getKey(), entry.getValue());
-                        }
-                        sb.append(line).append("\n");
-                    }
-
-                    scanner.close();
-                    fis.close();
-                    FileOutputStream fos = new FileOutputStream(file);
-                    fos.write(sb.toString().getBytes());
-                    fos.flush();
-                    fos.close();
-                }
+                replaceAllTextFiles(quiltTemps, quiltRelocations);
             }
 
             for (Map.Entry<ForgixMergeExtension.CustomContainer, Map<File, File>> entry : customContainerTemps.entrySet()) {
@@ -815,26 +739,7 @@ public class Forgix {
 
                         entry.getKey().getAdditionalRelocates().put(group, name + "." + group);
                         entry.getKey().getAdditionalRelocates().put(group.replace(".", "/"), name + "/" + group.replace(".", "/"));
-                        for (File file : listAllTextFiles(customTemps)) {
-                            FileInputStream fis = new FileInputStream(file);
-                            Scanner scanner = new Scanner(fis);
-                            StringBuilder sb = new StringBuilder();
-
-                            while (scanner.hasNext()) {
-                                String line = scanner.nextLine();
-                                for (Map.Entry<String, String> entry3 : entry.getKey().getAdditionalRelocates().entrySet()) {
-                                    line = line.replace(entry3.getKey(), entry3.getValue());
-                                }
-                                sb.append(line).append("\n");
-                            }
-
-                            scanner.close();
-                            fis.close();
-                            FileOutputStream fos = new FileOutputStream(file);
-                            fos.write(sb.toString().getBytes());
-                            fos.flush();
-                            fos.close();
-                        }
+                        replaceAllTextFiles(customTemps, entry.getKey().getAdditionalRelocates());
                     }
                 }
             }
@@ -898,28 +803,7 @@ public class Forgix {
                         }
                     }
                 }
-
-                for (File file : listAllTextFiles(mergedTemps)) {
-                    FileInputStream fis = new FileInputStream(file);
-                    Scanner scanner = new Scanner(fis);
-                    StringBuilder sb = new StringBuilder();
-
-                    while (scanner.hasNext()) {
-                        String line = scanner.nextLine();
-                        for (Map.Entry<String, String> entry : removeDuplicateRelocationResources.entrySet()) {
-                            line = line.replace(entry.getKey(), entry.getValue());
-                        }
-                        sb.append(line).append("\n");
-                    }
-
-
-                    scanner.close();
-                    fis.close();
-                    FileOutputStream fos = new FileOutputStream(file);
-                    fos.write(sb.toString().getBytes());
-                    fos.flush();
-                    fos.close();
-                }
+                replaceAllTextFiles(mergedTemps, removeDuplicateRelocationResources);
             }
         }
 
