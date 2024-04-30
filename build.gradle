@@ -7,7 +7,10 @@ plugins {
 }
 
 group 'io.github.pacifistmc.forgix'
-version '1.2.7' // Make sure to change the version number in io.github.pacifistmc.forgix.Forgix
+
+// Make sure to change the version number in io.github.pacifistmc.forgix.Forgix
+def constantsSource = rootProject.file("src/main/java/io/github/pacifistmc/forgix/Forgix.java").text
+version = (constantsSource =~ /\s+version\s*=\s*"(.*)";/)[0][1]
 
 configurations {
     shadowMe
