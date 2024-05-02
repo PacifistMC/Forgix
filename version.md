@@ -1,4 +1,8 @@
-# The current latest version is 1.2.7
+# The current latest version is 1.2.8
+
+## 1.2.8
+#### Fixes
+- [Build failing due to NPE in FileUtils #25](https://github.com/PacifistMC/Forgix/issues/25)
 
 ## 1.2.7
 - Adds minor support for NeoForge (Untested)
