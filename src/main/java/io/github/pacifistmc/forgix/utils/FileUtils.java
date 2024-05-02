@@ -1,6 +1,7 @@
 package io.github.pacifistmc.forgix.utils;
 
 import org.apache.commons.io.FilenameUtils;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
@@ -240,23 +241,23 @@ public class FileUtils {
     }
 
     /**
-     * This method checks if the file is a binary file or a text file
-     * @param file to check if it's a binary file or text file
-     * @return If it's a binary file
+     * Try to determine if a file is a binary or text file
+     * @param file - The file to test
+     * @return - True if binary
      */
-    private static boolean isBinary(File file) {
-        try {
-            FileInputStream fis;
-            BufferedInputStream bis = new BufferedInputStream(fis = new FileInputStream(file));
-            int read = bis.read();
-            while (read != -1) {
-                if (isMagicCharacter(read, file)) return true;
-                read = bis.read();
+    public static boolean isBinary(@NotNull File file) {
+        try (FileInputStream inputStream = new FileInputStream(file)) {
+            int size = (int) Math.min(file.length(), 4096);
+            byte[] data = new byte[size];
+            int bytesRead = inputStream.read(data, 0, size);
+
+            for (int i = 0; i < bytesRead; i++) {
+                if (data[i] == 0) {
+                    return true;
+                }
             }
-            bis.close();
-            fis.close();
             return false;
-        } catch (IOException exception) {
+        } catch (IOException e) {
             return false;
         }
     }
