@@ -1,6 +1,11 @@
-# The current latest version is 1.2.8
+# The current latest version is 1.2.9
+
+## 1.2.9
+#### Fixes
+- [Unable to update to 1.2.8 from 1.2.6/1.2.7](https://github.com/PacifistMC/Forgix/issues/27)
 
 ## 1.2.8
+#### This is a broken version and is superseded by version 1.2.9
 #### Fixes
 - [Build failing due to NPE in FileUtils #25](https://github.com/PacifistMC/Forgix/issues/25)
 
