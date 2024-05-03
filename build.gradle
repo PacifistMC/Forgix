@@ -14,7 +14,7 @@ version = (constantsSource =~ /\s+version\s*=\s*"(.*)";/)[0][1]
 
 configurations {
     shadowMe
-    implementation.extendsFrom shadowMe
+    compileOnly.extendsFrom shadowMe
 }
 
 repositories {
