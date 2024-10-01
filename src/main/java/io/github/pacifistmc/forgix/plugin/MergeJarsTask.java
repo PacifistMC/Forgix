@@ -1,131 +1,89 @@
 package io.github.pacifistmc.forgix.plugin;
 
 import io.github.pacifistmc.forgix.Forgix;
-import org.apache.commons.io.FileUtils;
+import io.github.pacifistmc.forgix.Merge;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
+import org.gradle.api.internal.file.copy.CopyAction;
+import org.gradle.api.logging.Logger;
 import org.gradle.api.tasks.TaskAction;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.*;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
-@SuppressWarnings({"ConstantConditions", "OptionalGetWithoutIsPresent", "ResultOfMethodCallIgnored"})
+import static io.github.pacifistmc.forgix.plugin.ForgixPlugin.rootProject;
+import static io.github.pacifistmc.forgix.plugin.ForgixPlugin.settings;
+import static io.github.pacifistmc.forgix.utils.ForgixFileUtils.findLatestFile;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+
 public class MergeJarsTask extends DefaultTask {
-    @TaskAction
-    void mergeJars() throws IOException {
-        long time = System.currentTimeMillis();
-        if (ForgixPlugin.settings.mergedJarName == null || ForgixPlugin.settings.group == null) {
-            ForgixPlugin.rootProject.getLogger().error("Please configure \"group\" and \"mergedJarName\" manually!");
-            ForgixPlugin.rootProject.getLogger().info("Check out how to configure them here: " + "https://github.com/PacifistMC/Forgix#configuration");
-            return;
-        }
-        ForgixMergeExtension.ForgeContainer forgeSettings = ForgixPlugin.settings.getForgeContainer();
-        ForgixMergeExtension.NeoForgeContainer neoforgeSettings = ForgixPlugin.settings.getNeoForgeContainer();
-        ForgixMergeExtension.FabricContainer fabricSettings = ForgixPlugin.settings.getFabricContainer();
-        ForgixMergeExtension.QuiltContainer quiltSettings = ForgixPlugin.settings.getQuiltContainer();
+	@TaskAction
+	void mergeJars() throws IOException {
+		long time = System.currentTimeMillis();
+		Logger logger = rootProject.getLogger();
+		if (settings.mergedJarName == null || settings.group == null) {
+			logger.error("Please configure `group` and `mergedJarName` manually!");
+			logger.info("Check out how to configure them here: " + "https://github.com/PacifistMC/Forgix#configuration");
+			return;
+		}
+		File dest = new File(rootProject.getRootDir(), settings.getOutputDir());
+//		getArchiveFileName().set(settings.mergedJarName);
+//		getDestinationDirectory().set(dest);
+		//Prepare Stage
+		
+		//collect containers
+		Map<ForgixMergeExtension.ForgixContainer, Project> containers = settings.getContainers().stream()
+				.collect(Collectors.toMap(c -> c, c -> (rootProject.project(c.getProjectName()))));
+		if (containers.isEmpty()) {
+			logger.error("No projects were found. Skipping mergeJar task.");
+			return;
+		} else if (containers.size() == 1) {
+			logger.error("Only one project was found. Skipping mergeJar task.");
+			return;
+		}
+		
+		//file existence checked
+		Map<ForgixMergeExtension.ForgixContainer, File> libs = containers.entrySet().stream()
+				.collect(Collectors.toMap(
+						Map.Entry::getKey,
+						e -> {
+							String jarLocation = e.getKey().getJarLocation();
+							if (jarLocation != null) {
+								Project project = e.getValue();
+								File file = new File(project.getProjectDir(), jarLocation);
+								if (!file.exists()) {
+									throw new IllegalArgumentException("Unable to access jar file in " + file.getAbsoluteFile());
+								}
+								return file;
+							} else {
+								File defaultPath = new File(rootProject.getBuildDir(), "libs");
+								return Objects.requireNonNull(findLatestFile(defaultPath), () -> "no jars found in default path: " + defaultPath.getAbsoluteFile());
+							}
+						}));
+		
+		File mergedJar = new File(dest, File.separator + settings.getMergedJarName());
+		if (!mergedJar.getParentFile().exists()) mergedJar.getParentFile().mkdirs();
 
-        List<ForgixMergeExtension.CustomContainer> customSettingsList = ForgixPlugin.settings.getCustomContainers();
-
-        Project forgeProject = null;
-        Project neoforgeProject = null;
-        Project fabricProject = null;
-        Project quiltProject = null;
-
-        Map<Project, ForgixMergeExtension.CustomContainer> customProjects = new HashMap<>();
-
-        List<Boolean> validation = new ArrayList<>();
-        try {
-            forgeProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equalsIgnoreCase(forgeSettings.getProjectName())).findFirst().get();
-            validation.add(true);
-        } catch (NoSuchElementException ignored) { }
-        try {
-            neoforgeProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equalsIgnoreCase(neoforgeSettings.getProjectName())).findFirst().get();
-            validation.add(true);
-        } catch (NoSuchElementException ignored) {}
-        try {
-            fabricProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equalsIgnoreCase(fabricSettings.getProjectName())).findFirst().get();
-            validation.add(true);
-        } catch (NoSuchElementException ignored) { }
-        try {
-            quiltProject = ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equalsIgnoreCase(quiltSettings.getProjectName())).findFirst().get();
-            validation.add(true);
-        } catch (NoSuchElementException ignored) { }
-
-        for (ForgixMergeExtension.CustomContainer customSettings : customSettingsList) {
-            try {
-                customProjects.put(ForgixPlugin.rootProject.getAllprojects().stream().filter(p -> !p.getName().equals(ForgixPlugin.rootProject.getName())).filter(p -> p.getName().equals(customSettings.getProjectName())).findFirst().get(), customSettings);
-                validation.add(true);
-            } catch (NoSuchElementException ignored) { }
-        }
-
-        if (validation.size() < 2) {
-            if (validation.size() == 1) ForgixPlugin.rootProject.getLogger().error("Only one project was found. Skipping mergeJar task.");
-            if (validation.size() == 0) ForgixPlugin.rootProject.getLogger().error("No projects were found. Skipping mergeJar task.");
-            return;
-        }
-        validation.clear();
-
-        File forgeJar = null;
-        File neoforgeJar = null;
-        File fabricJar = null;
-        File quiltJar = null;
-
-        Map<ForgixMergeExtension.CustomContainer, File> customJars = new HashMap<>();
-
-        if (forgeProject != null) {
-            if (forgeSettings.getJarLocation() != null) {
-                forgeJar = new File(forgeProject.getProjectDir(), forgeSettings.getJarLocation());
-            } else {
-                forgeJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(forgeProject.getBuildDir(), "libs"));
-            }
-        }
-
-        if (neoforgeProject != null) {
-            if (neoforgeSettings.getJarLocation() != null) {
-                neoforgeJar = new File(neoforgeProject.getProjectDir(), neoforgeSettings.getJarLocation());
-            } else {
-                neoforgeJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(neoforgeProject.getBuildDir(), "libs"));
-            }
-        }
-
-        if (fabricProject != null) {
-            if (fabricSettings.getJarLocation() != null) {
-                fabricJar = new File(fabricProject.getProjectDir(), fabricSettings.getJarLocation());
-            } else {
-                fabricJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(fabricProject.getBuildDir(), "libs"));
-            }
-        }
-
-        if (quiltProject != null) {
-            if (quiltSettings.getJarLocation() != null) {
-                quiltJar = new File(quiltProject.getProjectDir(), quiltSettings.getJarLocation());
-            } else {
-                quiltJar = io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(quiltProject.getBuildDir(), "libs"));
-            }
-        }
-
-        for (Map.Entry<Project, ForgixMergeExtension.CustomContainer> entry : customProjects.entrySet()) {
-            if (entry.getValue().getJarLocation() != null) {
-                customJars.put(entry.getValue(), new File(entry.getKey().getProjectDir(), entry.getValue().getJarLocation()));
-            } else {
-                customJars.put(entry.getValue(), io.github.pacifistmc.forgix.utils.FileUtils.findLatestFile(new File(entry.getKey().getBuildDir(), "libs")));
-            }
-        }
-
-        File mergedJar = new File(ForgixPlugin.rootProject.getRootDir(), ForgixPlugin.settings.getOutputDir() + File.separator + ForgixPlugin.settings.getMergedJarName());
-        if (mergedJar.exists()) FileUtils.forceDelete(mergedJar);
-        if (!mergedJar.getParentFile().exists()) mergedJar.getParentFile().mkdirs();
-
-        Path tempMergedJarPath = new Forgix.Merge(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), neoforgeJar, neoforgeSettings.getAdditionalRelocates(), neoforgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), customJars, ForgixPlugin.settings.getGroup(), new File(ForgixPlugin.rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), ForgixPlugin.settings.getMergedJarName(), ForgixPlugin.settings.getRemoveDuplicates(), ForgixPlugin.rootProject.getLogger()).merge(false).toPath();
-        Files.move(tempMergedJarPath, mergedJar.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        try {
-            Files.setPosixFilePermissions(mergedJar.toPath(), Forgix.Merge.perms);
-        } catch (UnsupportedOperationException | IOException | SecurityException ignored) { }
-
-        ForgixPlugin.rootProject.getLogger().debug("Merged jar created in " + (System.currentTimeMillis() - time) / 1000.0 + " seconds.");
-    }
+//		Path tempMergedJarPath = new Forgix.Merge(forgeJar, forgeSettings.getAdditionalRelocates(), forgeSettings.getMixins(), neoforgeJar, neoforgeSettings.getAdditionalRelocates(), neoforgeSettings.getMixins(), fabricJar, fabricSettings.getAdditionalRelocates(), quiltJar, quiltSettings.getAdditionalRelocates(), customJars, settings.getGroup(), new File(rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), settings.getMergedJarName(), settings.getRemoveDuplicates(), logger).merge(false).toPath();
+		Path tempMergedJarPath = new Merge(containers.keySet(), libs, settings.getGroup(), new File(rootProject.getRootDir(), ".gradle" + File.separator + "forgix"), settings.getMergedJarName(), settings.getRemoveDuplicates(), logger)
+				.merge().toPath();
+		Files.move(tempMergedJarPath, mergedJar.toPath(), REPLACE_EXISTING);
+		
+		try {
+			Files.setPosixFilePermissions(mergedJar.toPath(), Forgix.perms);
+		} catch (Exception e) {
+			logger.debug("unable to set file permission", e);
+		}
+		
+		logger.info("merged jar created in {} seconds.", (System.currentTimeMillis() - time) / 1000.0);
+	}
+	
+	protected CopyAction createCopyAction() {
+		return null;
+	}
 }
