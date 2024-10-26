@@ -117,17 +117,19 @@ public class FileUtils {
         List<File> mixins = new ArrayList<>();
 
         for (File file : files) {
-            if (FilenameUtils.getExtension(file.getName()).equals("json")) {
-                String text = org.apache.commons.io.FileUtils.readFileToString(file, Charset.defaultCharset());
-                if (refmaps) {
-                    if (text.contains("\"mappings\":") || text.contains("\"data\":")) {
-                        mixins.add(file);
-                        continue;
+            if (!(file.getPath().contains("/data/") || file.getPath().contains("/assets/") || file.getPath().contains("/config/"))) {
+                if (FilenameUtils.getExtension(file.getName()).equals("json")) {
+                    String text = org.apache.commons.io.FileUtils.readFileToString(file, Charset.defaultCharset());
+                    if (refmaps) {
+                        if (text.contains("\"mappings\":") || text.contains("\"data\":")) {
+                            mixins.add(file);
+                            continue;
+                        }
                     }
-                }
 
-                if (text.contains("\"package\":")) {
-                    mixins.add(file);
+                    if (text.contains("\"package\":")) {
+                        mixins.add(file);
+                    }
                 }
             }
         }
