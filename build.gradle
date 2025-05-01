@@ -1,0 +1,123 @@
+plugins {
+    id 'java'
+    id 'java-gradle-plugin'
+    id 'maven-publish'
+    id 'com.gradle.plugin-publish' version '0.21.0'
+    id 'com.gradleup.shadow' version '9.0.0-beta12'
+    id 'xyz.wagyourtail.jvmdowngrader' version "1.3.0-SNAPSHOT"
+    id 'systems.manifold.manifold-gradle-plugin' version '0.0.2-alpha'
+}
+
+group = 'io.github.pacifistmc.forgix'
+
+// Make sure to change the version number in io.github.pacifistmc.forgix.Forgix
+def constantsSource = rootProject.file("src/main/java/io/github/pacifistmc/forgix/Forgix.java").text
+version = (constantsSource =~ /\s+VERSION\s*=\s*"(.*)";/)[0][1]
+
+configurations {
+    shade
+    implementation.extendsFrom shade
+    testImplementation.extendsFrom implementation
+    testAnnotationProcessor.extendsFrom annotationProcessor
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'FirstDarkDev'
+        url = 'https://maven.firstdarkdev.xyz/releases/'
+    }
+    maven {
+        name = 'FabricMC'
+        url = 'https://maven.fabricmc.net/'
+    }
+}
+
+manifold {
+    manifoldVersion = '2025.1.11'
+}
+
+dependencies {
+    implementation gradleApi()
+
+    shade "systems.manifold:manifold-rt:${manifold.manifoldVersion.get()}"
+    shade "systems.manifold:manifold-props-rt:${manifold.manifoldVersion.get()}"
+    shade "systems.manifold:manifold-params-rt:${manifold.manifoldVersion.get()}"
+    shade "systems.manifold:manifold-ext-rt:${manifold.manifoldVersion.get()}"
+    shade "systems.manifold:manifold-tuple-rt:${manifold.manifoldVersion.get()}"
+    annotationProcessor "systems.manifold:manifold-exceptions:${manifold.manifoldVersion.get()}"
+    annotationProcessor "systems.manifold:manifold-props:${manifold.manifoldVersion.get()}"
+    annotationProcessor "systems.manifold:manifold-params:${manifold.manifoldVersion.get()}"
+    annotationProcessor "systems.manifold:manifold-tuple:${manifold.manifoldVersion.get()}"
+    annotationProcessor "systems.manifold:manifold-strings:${manifold.manifoldVersion.get()}"
+
+    shade 'commons-io:commons-io:2.19.0'
+
+    shade('net.fabricmc:tiny-remapper:0.9.0') {
+        exclude group: 'org.ow2.asm'
+    }
+    shade 'org.ow2.asm:asm:9.8'
+    shade 'org.ow2.asm:asm-commons:9.8'
+    shade 'org.ow2.asm:asm-tree:9.8'
+    shade 'org.ow2.asm:asm-util:9.8'
+    shade 'net.lingala.zip4j:zip4j:2.11.5'
+
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+shadowJar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    configurations = [project.configurations.getByName("shade")]
+    archiveClassifier.set("shadow")
+
+    relocate "net.fabricmc", "pacifistmc.libraries.net.fabricmc"
+    relocate "org.objectweb.asm", "pacifistmc.libraries.org.objectweb.asm"
+    relocate "org.apache.commons.io", "pacifistmc.libraries.org.apache.commons.io"
+    relocate "net.lingala.zip4j", "pacifistmc.libraries.net.lingala.zip4j"
+}
+
+downgradeJar {
+    inputFile = tasks.shadowJar.archiveFile
+}
+
+shadeDowngradedApi {
+    archiveClassifier.set(null)
+}
+
+gradlePlugin {
+    plugins {
+        Forgix {
+            id = "io.github.pacifistmc.forgix"
+            displayName = 'Forgix'
+            description = 'This plugin merges all your modloader & plugin jars into a single jar.'
+            implementationClass = "io.github.pacifistmc.forgix.plugin.ForgixGradlePlugin"
+        }
+    }
+}
+
+
+pluginBundle {
+    website = 'https://github.com/PacifistMC'
+    vcsUrl = 'https://github.com/PacifistMC/Forgix'
+    tags = ['forge', 'minecraftforge', 'merge', 'jars', 'fabric', 'fabricmc', 'quilt', 'quiltmc', 'neoforge', 'neoforged', 'minecraft', 'architectury', 'forgix', 'pacifistmc']
+}
+
+publishing {
+    repositories {
+        maven {
+            name = 'localPluginRepository'
+            url = '../local-plugin-repository'
+        }
+    }
+}
+
+tasks.withType(GenerateModuleMetadata).configureEach {
+    dependsOn(tasks.named('shadeDowngradedApi'))
+}
+
+test {
+    useJUnitPlatform()
+}
+jar.finalizedBy(shadeDowngradedApi)
+javadoc.enabled(false) // Doesn't work well with Manifold

@@ -1,0 +1,11 @@
+pluginManagement {
+    repositories {
+        mavenLocal()
+        maven {
+            url = "https://maven.wagyourtail.xyz/snapshots"
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+rootProject.name = 'Forgix'
