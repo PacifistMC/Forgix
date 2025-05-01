@@ -114,13 +114,6 @@ forgix {
 ---
 </details>
 
-If you don’t want to run `mergeJars` manually then you could add this to the end of your build.gradle
-
-```groovy
-build.finalizedBy(mergeJars)
-assemble.finalizedBy(mergeJars)
-```
-
 <details closed>
 <summary>Documentation for each Forgix configuration</summary>
 
@@ -214,6 +207,13 @@ forgix {
 ```
 ---
 </details>
+
+If you don’t want to run `mergeJars` manually then you could add this to the end of your build.gradle
+
+```groovy
+build.finalizedBy(mergeJars)
+assemble.finalizedBy(mergeJars)
+```
 
 ### This project feels dead
 Forgix is mainly loader and minecraft independent, it is it's own project and doesn't need much maintenance.\
