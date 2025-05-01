@@ -1,25 +1,20 @@
 ![Forgix](https://raw.githubusercontent.com/PacifistMC/Forgix/main/assets/forgix-with-text.png)
 ---
-Forgix is a brand-new tool that allows Minecraft modders to combine multiple plugin/mod-loaders into one jar!
+Forgix is a tool that allows Minecraft modders to combine multiple plugin/modloaders into one jar!
 
 ### How does this benefit me as a regular user?
-You don’t need to know much about Forgix **as this is a tool for developers**, but the mods you use may simply have a single file that you need to download, so you don’t have to worry about which mod-loader you’re installing for.
+You don’t need to know much about Forgix **as this is a tool for developers**, but the mods you use may simply have a single file that you need to download, so you don’t have to worry about which modloader you’re installing for.
 
 ### Is it stable enough for production use?
-Yes, in its current state, it is quite ready for production usage and has worked on all mods I’ve tested and should work on your mod as well, even if your mod’s code base is very cursed. If anything breaks, simply open an [issue on GitHub](https://github.com/PacifistMC/Forgix/issues).  
-You could wait for update `2.0.0` which is a complete rewrite of the project but it releases anytime between now and [January 1, 4096 (UTC)]().
-
-### How it all began
-Forgix began as an experiment to see if I could merge multiple mod-loaders into one; I knew it was possible _(despite the fact that a lot of people said it wasn’t)_, and after a lot of trial and error I managed to make a working prototype for semi-automatic jar merging, which was actually quite bad and was hard-coded to only work with the mod I was working on.  
-After realizing that it was doable, I rewrote the entire thing so that it could be used by the public, and so Forigx was born.
+Yes, in its current state, it is quite ready for production usage and has worked on all mods I’ve tested and should work on your mod as well, even if your mod’s code base is very cursed. If anything breaks, simply open an [issue on GitHub](https://github.com/PacifistMC/Forgix/issues).
 
 ### How it works
-Forgix makes advantage of a JVM feature that only loads the classes that are called; by altering the packages slightly, we can make it such that each mod-loader calls its own package and does not interfere with other mod-loaders.
+Forgix makes advantage of a JVM feature, the fact that it only loads the classes that are called; by altering the packages slightly, we can make it such that each modloader calls its own package and does not interfere with other modloaders.
 
-So, for example, Quilt goes into `quilt.mod.json` and calls the entry-point from there, but we’ve updated the packages so that it only calls Quilt entry-points and not other mod-loader entry-points, and JVM will never load other classes since Quilt would never call them.
+So, for example, Quilt goes into `quilt.mod.json` and calls the entry-point from there, but we’ve updated the packages so that it only calls Quilt entry-points and not other modloader entry-points, and JVM will never load other classes since Quilt would never call them.
 
 ### Usage and Documentation
-> First apply the plugin in your **root** build.gradle
+First apply the plugin in your **root** build.gradle
 
 <details closed>
 <summary>Applying the plugin</summary>
@@ -89,178 +84,137 @@ apply(plugin = "io.github.pacifistmc.forgix")
 ```
 </details>
 
-Remember to change `<version>` with the latest version! You can get the latest version from [Forgix Version](https://github.com/PacifistMC/Forgix/blob/main/version.md).
+Remember to change `<version>` with the latest version! You can get the latest version from [Forgix Version](https://github.com/PacifistMC/Forgix/releases).
 
 ---
 </details>
 
-> Then configure it to work with your mod!  _This process is going to be automatic in the future but I haven’t gotten time to make that yet._
+Now run `mergeJars` and it should work!\
+Builds by default are generated in `build/merged` but can be altered.
+
 <details closed>
-<summary>Configuring the plugin to make it work</summary>
+<summary>OPTIONAL: Configuration</summary>
 
 ---
-This is the normal configuration that by default should work on almost all mods.
+This is an example configuration to give a general idea.
 
 ```groovy
 forgix {
-    group = "org.example.mod"
-    mergedJarName = "example-mod"
-}
-```
-
-The `group` is the common package name for your mod and the `mergedJarName` is going to be the name of the merged jar that it’s going to create, if the `mergedJarName` doesn’t have an extension then it’s going to give it the extension `jar` but keep in mind that sometimes the version number might be detected as an extension which at that point it won’t give it the extension `jar` and you’ll have to manually do that.
-
-Running the task `mergeJars` (after running `build`) would create the merged jars in the `Merged` folder. _(In the future this might be in the `build/libs/merged` folder)_
-
-If you don’t want to run `mergeJars` manually then you could add this. _(In the future this might be the default behavior)_
-
-```groovy
-subprojects {
-    // ...
-    build.finalizedBy(mergeJars)
-    assemble.finalizedBy(mergeJars)
+    destinationDirectory = layout.projectDirectory.dir("build/merged")
+    archiveClassifier = "merged"
+    archiveVersion = "1.0.0"
+    
+    fabric()
+    neoforge { // How to set a custom input jar in case the automatic detection fails
+        inputJar = project(":neoforge").tasks.shadowJar.archiveFile
+    }
+    merge("nyaLoader") // How to add a custom modloader (note your project must be named "nyaLoader")
 }
 ```
 ---
 </details>
 
-> Documentation for each Forgix configuration!
+If you don’t want to run `mergeJars` manually then you could add this to the end of your build.gradle
+
+```groovy
+build.finalizedBy(mergeJars)
+assemble.finalizedBy(mergeJars)
+```
+
 <details closed>
-<summary>Click to view</summary>
+<summary>Documentation for each Forgix configuration</summary>
 
 ---
-#### Root container (“forgix”)
-- `group` (String)
-  - This is the common package name for your mod; it is usually the maven group.
-  - A required value for now.
-- `mergedJarName` (String)
-  - This is the output jar’s name. If the name does not contain an extension, the extension `jar` is added; however, it sometimes identifies the version number as an extension and does not add it; in that case, you need to manually add the `jar` extension to the name.
-  - A required value for now.
-- `removeDuplicate` (String)
-  - This removes a duplicate package from the merged jar. For example, if you have a core package that is replicated across all mod-loaders but doesn’t need to be then you might use this to remove the duplication.
-  - This can be used more than once to remove multiple duplicates, but if there are a lot of them then it’s best to use ‘removeDuplicates’ which accepts a list.
+#### Root container ("forgix")
+- `silence` (Boolean)
+  - Whether to silence the thank you message.
+  - Defaults to `false`.
+- `archiveClassifier` (String)
+  - Sets the classifier for the merged archive.
+  - Defaults to a string joining all the platforms.
+- `archiveVersion` (String)
+  - Sets the version for the merged archive.
+  - Defaults to the root project's version.
+- `destinationDirectory` (Directory)
+  - Sets the directory where the merged jar will be placed.
+  - Defaults to `build/merged` in the root project.
 
-##### Forge sub-container (“forge”)
-- `projectName` (String)
-  - This is the name of the Forge project. This is set to “forge” by default.
-- `jarLocation` (String)
-  - This is the location of the built Forge jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
-- `additionalRelocate` (String, String)
-  - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
-  - This can be used numerous times to specify multiple relocations.
-- `mixin` (String)
-  - This exists because Forge can be a real pain at times, and Forge sometimes does something strange where we can’t actually identify mixins the normal way. However, if we don’t automatically detect the mixins, then only this should be used to specify the mixins explicitly.
-  - This can be used more than once to specify multiple mixins.
+##### Loader configurations
+Forgix supports various modloaders and plugin platforms. For each one, you can either call the method with no arguments to use defaults, or provide a configuration block:\
+By default it should automatically detect and enable them accordingly.
 
-##### NeoForge sub-container (“neoforge”)
-- `projectName` (String)
-  - This is the name of the Forge project. This is set to “neoforge” by default.
-- `jarLocation` (String)
-  - This is the location of the built NeoForge jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
-- `additionalRelocate` (String, String)
-  - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
-  - This can be used numerous times to specify multiple relocations.
-- `mixin` (String)
-  - This exists because NeoForge can be a real pain at times, and NeoForge sometimes does something strange where we can’t actually identify mixins the normal way. However, if we don’t automatically detect the mixins, then only this should be used to specify the mixins explicitly.
-  - This can be used more than once to specify multiple mixins.
+```groovy
+forgix {
+    // Simple usage with defaults
+    fabric()
 
-##### Quilt sub-container (“quilt”)
-- `projectName` (String)
-  - This is the name of the Quilt project. This is set to “quilt” by default.
-- `jarLocation` (String)
-  - This is the location of the built Quilt jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
-- `additionalRelocate` (String, String)
-  - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
-  - This can be used more than once to specify multiple relocations.
+    // With configuration
+    forge {
+        inputJar = project(":forge").tasks.shadowJar.archiveFile
+    }
+}
+```
 
-##### Fabric sub-container (“fabric”)
-- `projectName` (String)
-  - This is the name of the Fabric project. This is set to “fabric” by default.
-- `jarLocation` (String)
-  - This is the location of the built Fabric jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
-- `additionalRelocate` (String, String)
-  - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
-  - This can be used more than once to specify multiple relocations.
+Default platforms:
+- `fabric()` - Fabric modloader
+- `forge()` - Forge modloader
+- `quilt()` - Quilt modloader
+- `neoforge()` - NeoForge modloader
+- `liteloader()` - LiteLoader modloader
+- `rift()` - Rift modloader
+- `plugin()` - General plugin project
+- `bukkit()` - Bukkit plugin
+- `spigot()` - Spigot plugin
+- `paper()` - Paper plugin
+- `sponge()` - Sponge plugin
+- `foila()` - Foila plugin
+- `bungeecoord()` - BungeeCord plugin
+- `waterfall()` - Waterfall plugin
+- `velocity()` - Velocity plugin
 
-##### Custom sub-container (“custom”)
-Because I’m not going to develop a new container for each mod-loader, this is the one that handles everything else. This can't handle Forge-like modloaders though due to Forge being weird and cursed. This configuration can be used more than once to specify multiple loaders.
-- `projectName` (String)
-  - This is the name of the project.
-  - This is a required value.
-- `jarLocation` (String)
-  - This is the location of the built jar **from the project that’s specified in `projectName`**. By default, this retrieves the jar with the shortest name, which is quite scuffed but I don’t know how to retrieve the built jar without relying on loom or something similar, hopefully it’ll be better in the future though!
-- `additionalRelocate` (String, String)
-  - Simply put, this allows you to define more `group`s, which is useful for relocating libraries.
-  - This can be used more than once to specify multiple relocations.
+##### MergeLoaderConfiguration options
+Each loader configuration accepts the following options:
+- `inputJar` (RegularFileProperty)
+  - Sets the input jar file to be merged.
+  - If not specified, Forgix will attempt to automatically detect the jar file.
+
+##### Generic merge method
+You can also use the generic `merge()` method to specify any project:
+
+```groovy
+forgix {
+    // Simple usage with defaults
+    merge("customLoader")
+
+    // With configuration
+    merge("customLoader") {
+        inputJar = project(":customLoader").tasks.shadowJar.archiveFile
+    }
+}
+```
 
 An example of a complete Forgix configuration:
 
 ```groovy
 forgix {
-    group = "org.example.mod" // (Required Value)
-    mergedJarName = "example-mod" // (Required Value)
-    outputDir = "build/libs/merged"
-    
-    forge {
-        projectName = "forge"
-        jarLocation = "build/libs/example-mod.jar"
+  silence = false
+  archiveClassifier = "all-platforms"
+  archiveVersion = "1.0.0"
+  destinationDirectory = layout.projectDirectory.dir("build/merged")
 
-        additionalRelocate "org.my.lib" "forge.org.my.lib"
-        additionalRelocate "org.my.lib.another" "forge.org.my.lib.another"
-        
-        mixin "forge.mixins.json"
-        mixin "forge.mixins.another.json"
-    }
-
-    neoforge {
-      projectName = "neoforge"
-      jarLocation = "build/libs/example-mod.jar"
-  
-      additionalRelocate "org.my.lib" "neoforge.org.my.lib"
-      additionalRelocate "org.my.lib.another" "neoforge.org.my.lib.another"
-  
-      mixin "neoforge.mixins.json"
-      mixin "neoforge.mixins.another.json"
-    }
-    
-    fabric {
-        projectName = "fabric"
-        jarLocation = "build/libs/example-mod.jar"
-        
-        additionalRelocate "org.my.lib" "fabric.org.my.lib"
-        additionalRelocate "org.my.lib.another" "fabric.org.my.lib.another"
-    }
-    
-    quilt {
-        projectName = "quilt"
-        jarLocation = "build/libs/example-mod.jar"
-        
-        additionalRelocate "org.my.lib" "quilt.org.my.lib"
-        additionalRelocate "org.my.lib.another" "quilt.org.my.lib.another"
-    }
-
-    custom {
-        projectName = "sponge" // (Required Value)
-        jarLocation = "build/libs/example-mod.jar"
-        
-        additionalRelocate "org.my.lib" "sponge.org.my.lib"
-        additionalRelocate "org.my.lib.another" "sponge.org.my.lib.another"
-    }
-
-    custom {
-        projectName = "spigot" // (Required Value)
-        jarLocation = "build/libs/example-mod.jar"
-
-        additionalRelocate "org.my.lib" "spigot.org.my.lib"
-        additionalRelocate "org.my.lib.another" "spigot.org.my.lib.another"
-    }
-    
-    removeDuplicate "org.example.mod.core"
+  paper()
+  fabric()
+  forge {
+    inputJar = project(":forge").tasks.shadowJar.archiveFile
+  }
+  merge("customLoader") {
+    inputJar = project(":customLoader").tasks.jar.archiveFile
+  }
 }
 ```
 ---
 </details>
 
 ### This project feels dead
-Depending on how far in the future you are, it very well could be. I am not going to update this every day; all future updates will be bug fixes for issues I haven’t found, quality of life improvements, or resolving that one Minecraft mod that won’t work due to how cursed its codebase is.
-If it works, it works
+Forgix is mainly loader and minecraft independent, it is it's own project and doesn't need much maintenance.\
+Depending on how far in the future you are, it very well could be. But the chances are that it'll still work!
