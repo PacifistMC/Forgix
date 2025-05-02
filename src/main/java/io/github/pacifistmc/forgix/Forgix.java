@@ -13,7 +13,7 @@ import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 public class Forgix {
-    private static final String VERSION = "1.3.0";
+    private static final String VERSION = "1.3.1";
     private static final String MANIFEST_VERSION_KEY = "Forgix-Version";
     private static final String MANIFEST_MAPPINGS_KEY = "Forgix-Mappings";
 
