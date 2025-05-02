@@ -49,7 +49,6 @@ public class MergeJarsTask extends Jar {
         // Set output file
         mergedJar = new File(destDir, getArchiveFileName().get());
         getOutputs().files(mergedJar);
-        mergedJar.getAbsoluteFile().println();
 
         // Up-to-date check
         getOutputs().upToDateWhen(_ -> isUpToDate());
