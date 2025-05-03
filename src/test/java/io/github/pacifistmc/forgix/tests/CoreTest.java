@@ -26,6 +26,8 @@ import io.github.pacifistmc.forgix.core.RelocationConfig;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class CoreTest {
+    private static final boolean debug = true;
+
     private File exampleJarFile;
 
     private File differentJarA;
@@ -121,10 +123,12 @@ public class CoreTest {
             Relocator.generateMappings(files);
 
             for (var file : files) {
-//                // Print the mappings
-//                file.mappings.forEach((originalPath, relocatedPath) -> {
-//                    "Original: ${originalPath}, Relocated: ${relocatedPath}".println();
-//                });
+                if (debug) {
+                    // Print the mappings
+                    file.mappings.forEach((originalPath, relocatedPath) -> {
+                        "Original: ${originalPath}, Relocated: ${relocatedPath}".println();
+                    });
+                }
 
                 // Verify conflicts were found
                 assertFalse(file.mappings.isEmpty(), "Conflicts should be present");
@@ -133,8 +137,10 @@ public class CoreTest {
             TinyClassWriter.write(files, tempDir.toFile());
 
             for (var file : files) {
-                // Print the contents of the tiny mappings file
-//                FileUtils.readFileToString(file.tinyFile, "UTF-8").println();
+                if (debug) {
+                    "Tiny mappings file content:".println();
+                    FileUtils.readFileToString(file.tinyFile, "UTF-8").println();
+                }
 
                 // Verify the tiny mappings file was created
                 assertTrue(file.tinyFile.exists(), "Tiny mappings file should be created");
@@ -168,10 +174,12 @@ public class CoreTest {
             var differentJarB1 = new JarFile(differentJarBCopy);
 
             // List all entries in the JAR files
-//            "\nEntries in differentJarA:".println();
-//            differentJarA1.entries().asIterator().forEachRemaining(System.out::println);
-//            "\nEntries in differentJarB:".println();
-//            differentJarB1.entries().asIterator().forEachRemaining(System.out::println);
+            if (debug) {
+                "\nEntries in differentJarA:".println();
+                differentJarA1.entries().asIterator().forEachRemaining(System.out::println);
+                "\nEntries in differentJarB:".println();
+                differentJarB1.entries().asIterator().forEachRemaining(System.out::println);
+            }
 
             // There must at least be one entry with the conflict prefix and the entries must be different
 

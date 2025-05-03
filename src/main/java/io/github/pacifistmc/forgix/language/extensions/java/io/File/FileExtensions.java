@@ -15,8 +15,11 @@ public class FileExtensions {
 
     public static File createFileWithParents(@This File self, String content = null) throws IOException {
         self.parentFile.mkdirs();
-        self.createNewFile();
-        if (content != null) FileUtils.write(self, content, "UTF-8");
+        if (self.createNewFile() && content != null) FileUtils.write(self, content, "UTF-8");
         return self;
+    }
+
+    public static void mustDeleteOnExit(@This File self) {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> FileExtensions.deleteQuietly(self))); // No, this cannot be replaced with a lambda reference
     }
 }

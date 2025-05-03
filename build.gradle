@@ -53,7 +53,7 @@ dependencies {
 
     shade 'commons-io:commons-io:2.19.0'
 
-    shade('net.fabricmc:tiny-remapper:0.9.0') {
+    shade('net.fabricmc:tiny-remapper:0.11.1') {
         exclude group: 'org.ow2.asm'
     }
     shade 'org.ow2.asm:asm:9.8'

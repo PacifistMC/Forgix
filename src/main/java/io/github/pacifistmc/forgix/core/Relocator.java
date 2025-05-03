@@ -1,10 +1,8 @@
 package io.github.pacifistmc.forgix.core;
 
 import io.github.pacifistmc.forgix.utils.JAR;
-import net.fabricmc.tinyremapper.IMappingProvider;
-import net.fabricmc.tinyremapper.OutputConsumerPath;
-import net.fabricmc.tinyremapper.TinyRemapper;
-import net.fabricmc.tinyremapper.TinyUtils;
+import net.fabricmc.tinyremapper.*;
+import net.fabricmc.tinyremapper.api.TrLogger;
 import org.apache.commons.io.FilenameUtils;
 
 import java.io.File;
@@ -15,10 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -28,10 +23,9 @@ import java.util.jar.JarFile;
  */
 @SuppressWarnings({"ConstantValue", "DataFlowIssue"}) // Don't worry these aren't real issues, IntelliJ just doesn't understand the weird manifold we have
 public class Relocator {
-    private static final ExecutorService EXECUTOR = Executors.newWorkStealingPool();
     private static final File tempDir = Files.createTempDirectory("forgix-tiny").toFile();
     static {
-        tempDir.deleteOnExit();
+        tempDir.mustDeleteOnExit();
     }
 
     /**
@@ -47,14 +41,22 @@ public class Relocator {
      * Relocates conflicting classes in JARs.
      * @param relocationConfigs The relocationConfigs to process
      */
-    public static void relocateClasses(List<RelocationConfig> relocationConfigs) {
-        if (relocationConfigs.getFirst().tinyFile == null) generateMappings(relocationConfigs); // Generate mappings if they don't exist
+    public static void relocateClasses(List<RelocationConfig> relocationConfigs, boolean doAnotherPass = false) {
+        if (doAnotherPass || relocationConfigs.getFirst().tinyFile == null) generateMappings(relocationConfigs, !doAnotherPass); // Generate mappings if they don't exist
+
+        // Return if there are no new conflicts (no new class conflicts)
+        // This will return if there are no conflicts at all (empty mappings) or there are only resource conflicts which we're ignoring
+        if (doAnotherPass && relocationConfigs.stream()
+                .flatMap(config -> config.mappings.keySet().stream())
+                .noneMatch(mapping -> mapping.endsWith(".class"))
+        ) return;
 
         // Process each JAR file in parallel
         relocationConfigs.stream().parallel().forEach(relocationConfig -> {
             // Create a tiny remapper with the mappings
             IMappingProvider tinyMappings = TinyUtils.createTinyMappingProvider(relocationConfig.tinyFile.toPath(), "original", "relocated");
-            TinyRemapper tinyRemapper = TinyRemapper.newRemapper().withMappings(tinyMappings).ignoreConflicts(true).renameInvalidLocals(true).rebuildSourceFilenames(true).resolveMissing(true).build();
+            var logger = new ConsoleLogger(); logger.setLevel(TrLogger.Level.ERROR);
+            TinyRemapper tinyRemapper = TinyRemapper.newRemapper(logger).withMappings(tinyMappings).ignoreConflicts(true).fixPackageAccess(true).renameInvalidLocals(true).rebuildSourceFilenames(true).resolveMissing(true).build();
 
             // Get the paths
             Path jarFilePath = Paths.get(relocationConfig.jarFile.getName());
@@ -75,8 +77,25 @@ public class Relocator {
             relocationConfig.jarFile.close();
 
             // Replace the original JAR file with the relocated one
-            Files.move(tempJarFilePath, jarFilePath, StandardCopyOption.REPLACE_EXISTING); // TODO: Probably don't overwrite, update the jar location in relocation config instead
+            Files.move(tempJarFilePath, jarFilePath, StandardCopyOption.REPLACE_EXISTING); // TODO: Probably don't overwrite, update the jar location in relocation config instead. FIXME: Trying to update the jar location gives so many lambda bootstrap errors due to how cursed manifold is 😭
         });
+
+        // Do multiple passes to handle possible conflicts created by the previous pass
+        // Example:
+        // ```
+        // class A {
+        //     public static Object get() {
+        //         return Minecraft.getInstance();
+        //     }
+        // }
+        // class B {
+        //     public static void use() {
+        //         System.out.println(A.get());
+        //     }
+        // }
+        // ```
+        // A will get remapped to `fabric.A` and `forge.A`, which will B call?
+        relocateClasses(relocationConfigs, true);
     }
 
     /**
@@ -152,6 +171,9 @@ public class Relocator {
     /**
      * Sets up the mappings for conflicting files in JARs.
      * @param relocationConfigs The relocationConfigs to process
+     * @param append Isn't a good name, but we set it to false to check if we have any new conflicts,
+     *               setting it to false will ignore previous mappings and overwrite them,
+     *               but it will still append the mappings to the tiny file
      */
     public static void generateMappings(List<RelocationConfig> relocationConfigs, boolean append = true) {
         mapConflicts(relocationConfigs, append);
@@ -170,7 +192,7 @@ public class Relocator {
         Map<String, List<FileInfo>> filesByPath = new ConcurrentHashMap<>();
 
         // Process each JAR file in parallel
-        var futures = relocationConfigs.stream().map(file -> CompletableFuture.runAsync(() -> {
+        relocationConfigs.stream().parallel().forEach(file -> {
             var jarFile = append ? file.jarFile : new JarFile(file.jarFile.getName());
             var entries = jarFile.entries();
             while (entries.hasMoreElements()) {
@@ -190,10 +212,7 @@ public class Relocator {
                 }
             }
             if (!append) jarFile.close();
-        }, EXECUTOR)).toList();
-
-        // Wait for all processing to complete
-        CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+        });
 
         // Create mappings for conflicts
         Map<JarFile, Map<String, String>> mappings = new ConcurrentHashMap<>();

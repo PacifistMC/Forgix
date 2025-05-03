@@ -233,29 +233,28 @@ public class ForgixMergeConfiguration {
         LOADER_DEFAULT_METHOD_MAP.put("velocity", _ -> ForgixGradlePlugin.settings.velocity());
     }
 
-    private final Map<String, Action<? super MergeLoaderConfiguration>> pendingActions = new HashMap<>();
     public void merge(String name, Action<? super MergeLoaderConfiguration> action) {
-        if (ForgixGradlePlugin.rootProject.getAllprojects().stream().noneMatch(project -> project.getName().equalsIgnoreCase(name))) {
-            throw new IllegalArgumentException("""
-                    Project with name ${name} does not exist.
-                    Please do something like:
-                    ```build.gradle
-                    forgix {
-                        // ...
-                        merge("<actual existing project name>") // no configuration, default values will be used
-                        // or
-                        merge("<actual existing project name>") {
-                            // your configuration here
-                        }
-                        // ...
-                    }
-                    ```""");
-        }
-
-        // Store the action for later execution
-        pendingActions.put(name, action);
         Action<? super Project> afterEvaluateAction = _ -> {
             var config = new MergeLoaderConfiguration(getObjects());
+
+            if (ForgixGradlePlugin.rootProject.getAllprojects().stream().noneMatch(project -> project.getName().equalsIgnoreCase(name))
+                    && (!config.getInputJar().isPresent() || !config.getInputJar().getAsFile().isPresent() || !config.getInputJar().getAsFile().get().exists())) {
+                throw new IllegalArgumentException("""
+                        Project with name ${name} does not exist and unable to detect input jar.
+                        Please do something like:
+                        ```build.gradle
+                        forgix {
+                            // ...
+                            merge("<actual existing project name>") // no configuration, will try to detect the best input jar based on heuristics
+                            // or
+                            merge("<name>") {
+                                inputJar = ... // your input jar file here
+                            }
+                            // ...
+                        }
+                        ```""");
+            }
+
             action.execute(config);
             mergeConfigurations.put(name, config);
         };
