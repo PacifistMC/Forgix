@@ -7,7 +7,6 @@ import org.apache.commons.io.FilenameUtils;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.io.OutputStreamWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -41,18 +40,32 @@ public class Relocator {
      * Relocates conflicting classes in JARs.
      * @param relocationConfigs The relocationConfigs to process
      */
+    private static final Map<JarFile, Map<String, String>> mappingsSnapshot = new ConcurrentHashMap<>(); // Store a snapshot of the mappings so we can restore it at the end of all passes
     public static void relocateClasses(List<RelocationConfig> relocationConfigs, boolean doAnotherPass = false) {
         if (doAnotherPass || relocationConfigs.getFirst().tinyFile == null) generateMappings(relocationConfigs, !doAnotherPass); // Generate mappings if they don't exist
 
         // Return if there are no new conflicts (no new class conflicts)
         // This will return if there are no conflicts at all (empty mappings) or there are only resource conflicts which we're ignoring
-        if (doAnotherPass && relocationConfigs.stream()
-                .flatMap(config -> config.mappings.keySet().stream())
+        if (doAnotherPass && relocationConfigs.parallelStream()
+                .flatMap(config -> config.getMappings().keySet().parallelStream())
                 .noneMatch(mapping -> mapping.endsWith(".class"))
-        ) return;
+        ) {
+            relocationConfigs.parallelStream().forEach(config -> config.setMappings(mappingsSnapshot.get(config.getJarFile())));
+            return;
+        }
 
         // Process each JAR file in parallel
-        relocationConfigs.stream().parallel().forEach(relocationConfig -> {
+        relocationConfigs.parallelStream().forEach(relocationConfig -> {
+            // Update mapping snapshot, merge with existing ones
+            // TODO: Make mappingsSnapshot faster, relocateResources needs access to class mappings and
+            //  doing multiple passes of class relocation resets the mappings so we need to store a snapshot of the mappings
+            //  in order to restore them at the end of all passes
+            mappingsSnapshot.computeIfAbsent(relocationConfig.getJarFile(), _ -> new ConcurrentHashMap<>());
+            mappingsSnapshot.computeIfPresent(relocationConfig.getJarFile(), (_, existingMap) -> {
+                existingMap.putAll(relocationConfig.mappings);
+                return existingMap;
+            });
+
             // Create a tiny remapper with the mappings
             IMappingProvider tinyMappings = TinyUtils.createTinyMappingProvider(relocationConfig.tinyFile.toPath(), "original", "relocated");
             var logger = new ConsoleLogger(); logger.setLevel(TrLogger.Level.ERROR);
@@ -117,9 +130,8 @@ public class Relocator {
         AtomicBoolean doAnotherPass = new AtomicBoolean(false);
 
         // Process each JAR file in parallel
-        relocationConfigs.stream().parallel().forEach(relocationConfig -> {
-            JarFile jarFile = relocationConfig.jarFile;
-            if (JAR.isClosed(jarFile)) jarFile = new JarFile(jarFile.getName()); // Reopen the JAR file if it's closed (it can be closed by the `relocateClasses` method)
+        relocationConfigs.parallelStream().forEach(relocationConfig -> {
+            JarFile jarFile = JAR.isClosed(relocationConfig.jarFile) ? new JarFile(relocationConfig.jarFile.getName()) : relocationConfig.jarFile; // Reopen the JAR file if it's closed (it can be closed by the `relocateClasses` method)
 
             Set<JarEntry> resources = JAR.getResources(jarFile);
             Map<JarEntry, String> contentMapping = new HashMap<>();
@@ -149,7 +161,7 @@ public class Relocator {
                 conflicts.put(originalPath.removeExtension().replace('/', '\\'), relocatedPath.removeExtension().replace('/', '\\')); // Add the original path without the .class extension and with backslashes instead of slashes
             });
 
-            for (var entry : resources) {
+            resources.parallelStream().forEach(entry -> {
                 String content = JAR.getResource(jarFile, entry);
                 for (var conflict : conflicts.entrySet()) {
                     // TODO: Smart replace
@@ -157,7 +169,7 @@ public class Relocator {
                     content = content.replace(conflict.getKey(), conflict.getValue());
                 }
                 contentMapping.put(entry, content);
-            }
+            });
 
             doAnotherPass.set(JAR.writeResources(jarFile, contentMapping));
             jarFile.close();
@@ -215,25 +227,18 @@ public class Relocator {
         });
 
         // Create mappings for conflicts
-        Map<JarFile, Map<String, String>> mappings = new ConcurrentHashMap<>();
         filesByPath.forEach((_, fileInfos) -> {
             if (fileInfos.size() <= 1) return; // No conflict
             // Create mappings for all relocationConfigs
             for (FileInfo fileInfo : fileInfos) {
                 String relocatedPath = FilenameUtils.normalize("${fileInfo.source.conflictPrefix}/${fileInfo.path}", true);
-//                fileInfo.source.mappings.put(fileInfo.path, relocatedPath); // This doesn't work and so doesn't the alternatives, maybe fileInfo.source doesn't actually point to the original object?
-                if (append) mappings.computeIfAbsent(fileInfo.source.jarFile, _ -> fileInfo.source.mappings).put(fileInfo.path, relocatedPath);
-                else mappings.put(fileInfo.source.jarFile, Map.of(fileInfo.path, relocatedPath));
+                if (append) fileInfo.source.mappings.putIfAbsent(fileInfo.path, relocatedPath);
+                else {
+                    fileInfo.source.mappings.clear();
+                    fileInfo.source.mappings.put(fileInfo.path, relocatedPath);
+                }
             }
         });
-
-        // Update mappings in the original list by repopulating the list
-        relocationConfigs.replaceAll(relocationConfig -> (RelocationConfig) (
-                jarFile: relocationConfig.jarFile,
-                conflictPrefix: relocationConfig.conflictPrefix,
-                tinyFile: relocationConfig.tinyFile,
-                mappings: mappings.getOrDefault(relocationConfig.jarFile, Map.of())
-                ));
     }
 
     /**
@@ -243,37 +248,26 @@ public class Relocator {
      */
     public static class TinyClassWriter {
         public static void write(List<RelocationConfig> relocationConfigs, File outputDirectory) {
-            // Store FileWriters for each tiny file
-            Map<File, FileWriter> fileWriterMap = new HashMap<>();
-            // Initialize the tiny mappings file for each relocation by repopulating the list because there's no other way due to how cursed manifold is
-            relocationConfigs.replaceAll(relocationConfig -> (RelocationConfig) (
-                    jarFile: relocationConfig.jarFile,
-                    conflictPrefix: relocationConfig.conflictPrefix,
-                    mappings: relocationConfig.mappings,
-                    tinyFile: new File(outputDirectory, relocationConfig.jarFile.getName().setBaseNameExtension("${relocationConfig.conflictPrefix}.tiny")).createFileWithParents("tiny\t2\t0\toriginal\trelocated\n")
-                    ));
-
             // Iterate over each relocation and it's mappings
             relocationConfigs.forEach(relocationConfig -> {
-                // We can't use `.forEach` otherwise we get a bootstrap method initialization error. The error will go away if we make TinyClassWriter be its own class AND make RelocationConfig be an inner class of Relocator
-                for (var mappingsEntry : relocationConfig.mappings.entrySet()) {
-                    if (!mappingsEntry.getKey().endsWith(".class")) continue; // Return if not a class file
+                // Set the tiny file for the relocation
+                if (relocationConfig.tinyFile == null)
+                    relocationConfig.setTinyFile(
+                            new File(outputDirectory, relocationConfig.jarFile.getName()
+                                    .setBaseNameExtension("${relocationConfig.conflictPrefix}.tiny"))
+                                    .createFileWithParents("tiny\t2\t0\toriginal\trelocated\n")
+                    );
 
-                    // Get or create the FileWriter for the current tiny file
-                    // We can't use `computeIfAbsent` otherwise we get a bootstrap method initialization error. The error will go away if we make TinyClassWriter be its own class AND make RelocationConfig be an inner class of Relocator
-                    FileWriter fileWriter = fileWriterMap.get(relocationConfig.tinyFile);
-                    if (fileWriter == null) {
-                        fileWriter = new FileWriter(relocationConfig.tinyFile, true); // Append to the file because this method may be called in multiple passes
-                        fileWriterMap.put(relocationConfig.tinyFile, fileWriter);
+                // Write the mappings
+                try (var fileWriter = new FileWriter(relocationConfig.tinyFile, true)) {
+                    for (var mappingsEntry : relocationConfig.mappings.entrySet()) {
+                        if (!mappingsEntry.getKey().endsWith(".class")) continue; // Return if not a class file
+
+                        // Write class mappings
+                        fileWriter.write("c\t${mappingsEntry.getKey().removeExtension()}\t${mappingsEntry.getValue().removeExtension()}\n");
                     }
-
-                    // Write class mappings
-                    fileWriter.write("c\t${mappingsEntry.getKey().removeExtension()}\t${mappingsEntry.getValue().removeExtension()}\n");
                 }
             });
-
-            // Close all writers
-            fileWriterMap.values().forEach(OutputStreamWriter::close);
         }
     }
 }

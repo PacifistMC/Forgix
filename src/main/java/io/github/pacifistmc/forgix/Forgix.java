@@ -26,11 +26,11 @@ public class Forgix {
         }
 
         List<RelocationConfig> configs = new ArrayList<>();
-        jarFileProjectMap.forEach((jarFile, conflictPrefix) -> configs.add((RelocationConfig) (jarFile:new JarFile(jarFile), conflictPrefix:conflictPrefix)));
+        jarFileProjectMap.forEach((jarFile, conflictPrefix) -> configs.add(new RelocationConfig(new JarFile(jarFile), conflictPrefix)));
         Relocator.relocate(configs);
 
         Map<File, String> tinyFiles = configs.stream()
-                .map(config -> config.tinyFile)
+                .map(RelocationConfig::getTinyFile)
                 .collect(Collectors.toMap(
                         Function.identity(),
                         file -> "META-INF/forgix/${file.getName()}"

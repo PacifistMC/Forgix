@@ -89,8 +89,8 @@ public class CoreTest {
             JarFile exampleJar2 = new JarFile(exampleJarCopy2)) {
             // Run the relocation process
             List<RelocationConfig> files = new ArrayList<>(List.of(
-                    (RelocationConfig) (jarFile:exampleJar1, conflictPrefix:"diffA"),
-                    (RelocationConfig) (jarFile:exampleJar2, conflictPrefix:"diffB")
+                    new RelocationConfig(exampleJar1, "diffA"),
+                    new RelocationConfig(exampleJar2, "diffB")
             ));
             Relocator.generateMappings(files);
 
@@ -117,8 +117,8 @@ public class CoreTest {
             JarFile differentJarB = new JarFile(differentJarBCopy)) {
             // Run the relocation process
             List<RelocationConfig> files = new ArrayList<>(List.of(
-                    (RelocationConfig) (jarFile:differentJarA, conflictPrefix:"diffA"),
-                    (RelocationConfig) (jarFile:differentJarB, conflictPrefix:"diffB")
+                    new RelocationConfig(differentJarA, "diffA"),
+                    new RelocationConfig(differentJarB, "diffB")
             ));
             Relocator.generateMappings(files);
 
@@ -166,8 +166,8 @@ public class CoreTest {
             JarFile differentJarB = new JarFile(differentJarBCopy)) {
             // Run the relocation process
             List<RelocationConfig> files = new ArrayList<>(List.of(
-                    (RelocationConfig) (jarFile:differentJarA, conflictPrefix:"diffA"),
-                    (RelocationConfig) (jarFile:differentJarB, conflictPrefix:"diffB")
+                    new RelocationConfig(differentJarA, "diffA"),
+                    new RelocationConfig(differentJarB, "diffB")
             ));
             Relocator.relocate(files);
             var differentJarA1 = new JarFile(differentJarACopy);
@@ -224,8 +224,8 @@ public class CoreTest {
         try(JarFile mergeJarA = new JarFile(mergeJarACopy);
             JarFile mergeJarB = new JarFile(mergeJarBCopy)) {
             List<RelocationConfig> files = new ArrayList<>(List.of(
-                    (RelocationConfig) (jarFile:mergeJarA, conflictPrefix:"diffA"),
-                    (RelocationConfig) (jarFile:mergeJarB, conflictPrefix:"diffB")
+                    new RelocationConfig(mergeJarA, "diffA"),
+                    new RelocationConfig(mergeJarB, "diffB")
             ));
             Relocator.relocate(files);
             try (var baos = JAR.combineJars(List.of(mergeJarACopy, mergeJarBCopy))) {
@@ -245,7 +245,10 @@ public class CoreTest {
                 mergedEntries.add(name);
             });
 
-            mergedEntries.forEach(System.out::println);
+            if (debug) {
+                "Entries in merged JAR:".println();
+                mergedEntries.forEach(System.out::println);
+            }
 
             assertTrue(mergedEntries.containsAll(getJarEntries(mergeJarA)), "Merged JAR should contain all entries from JAR A");
             assertTrue(mergedEntries.containsAll(getJarEntries(mergeJarB)), "Merged JAR should contain all entries from JAR B");
