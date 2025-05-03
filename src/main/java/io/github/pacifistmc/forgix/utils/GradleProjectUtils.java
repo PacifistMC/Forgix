@@ -35,14 +35,14 @@ public class GradleProjectUtils {
                 score += Math.log10(file.length());
 
                 // Penalize longer filenames
-                score -= fileName.length() * 0.15;
+                score -= fileName.length() * 0.1;
 
                 // Heavy penalties for certain keywords
                 if (fileName.contains("-sources")) score -= 100;
                 if (fileName.contains("-javadoc")) score -= 100;
 
                 // Penalize older files
-                score -= (currentTime - file.lastModified()) * 0.1;
+                score -= (currentTime - file.lastModified()) * 0.15;
 
                 // Bonus for files that contain the project name
                 if (fileName.contains(project.getName().toLowerCase())) score += 10;
