@@ -63,7 +63,7 @@ dependencies {
     shade 'org.ow2.asm:asm-tree:9.8'
     shade 'org.ow2.asm:asm-util:9.8'
 
-    shade fileTree(dir: './Forgix-Multiversion-Mod/common/build/libs', include: '*.jar').filter { file ->
+    shade fileTree(dir: 'src/main/resources/multiversion', include: '*.jar').filter { file ->
         !file.name.contains('-javadoc') && !file.name.contains('-sources')
     }
 
