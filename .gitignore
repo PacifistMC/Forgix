@@ -1,3 +1,5 @@
+forgix-multiversion.jar
+
 .gradle
 build/
 !gradle/wrapper/gradle-wrapper.jar

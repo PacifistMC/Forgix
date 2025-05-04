@@ -1,12 +1,12 @@
 package io.github.pacifistmc.forgix.core;
 
 import io.github.pacifistmc.forgix.utils.JAR;
+import io.github.pacifistmc.forgix.utils.TinyClassWriter;
 import net.fabricmc.tinyremapper.*;
 import net.fabricmc.tinyremapper.api.TrLogger;
 import org.apache.commons.io.FilenameUtils;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -204,8 +204,8 @@ public class Relocator {
         Map<String, List<FileInfo>> filesByPath = new ConcurrentHashMap<>();
 
         // Process each JAR file in parallel
-        relocationConfigs.stream().parallel().forEach(file -> {
-            var jarFile = append ? file.jarFile : new JarFile(file.jarFile.getName());
+        relocationConfigs.parallelStream().forEach(file -> {
+            var jarFile = append ? file.jarFile : new JarFile(file.jarFile.getName()); // If we're not appending, we need to reopen the JAR file
             var entries = jarFile.entries();
             while (entries.hasMoreElements()) {
                 var entry = entries.nextElement();
@@ -223,12 +223,17 @@ public class Relocator {
                     });
                 }
             }
-            if (!append) jarFile.close();
+            if (!append) jarFile.close(); // Close the jar if we opened it
         });
 
         // Create mappings for conflicts
         filesByPath.forEach((_, fileInfos) -> {
-            if (fileInfos.size() <= 1) return; // No conflict
+            // Return if there are no conflicts
+            if (fileInfos.size() <= 1) {
+                if (!append) relocationConfigs.forEach(config -> config.setMappings(new HashMap<>())); // Clear all mappings since there are no conflicts and we're supposed to overwrite.
+                return;
+            }
+
             // Create mappings for all relocationConfigs
             for (FileInfo fileInfo : fileInfos) {
                 String relocatedPath = FilenameUtils.normalize("${fileInfo.source.conflictPrefix}/${fileInfo.path}", true);
@@ -239,35 +244,5 @@ public class Relocator {
                 }
             }
         });
-    }
-
-    /**
-     * Writes relocation mappings as tiny files. <br>
-     * Namespace: original -> relocated
-     * This only writes class mappings.
-     */
-    public static class TinyClassWriter {
-        public static void write(List<RelocationConfig> relocationConfigs, File outputDirectory) {
-            // Iterate over each relocation and it's mappings
-            relocationConfigs.forEach(relocationConfig -> {
-                // Set the tiny file for the relocation
-                if (relocationConfig.tinyFile == null)
-                    relocationConfig.setTinyFile(
-                            new File(outputDirectory, relocationConfig.jarFile.getName()
-                                    .setBaseNameExtension("${relocationConfig.conflictPrefix}.tiny"))
-                                    .createFileWithParents("tiny\t2\t0\toriginal\trelocated\n")
-                    );
-
-                // Write the mappings
-                try (var fileWriter = new FileWriter(relocationConfig.tinyFile, true)) {
-                    for (var mappingsEntry : relocationConfig.mappings.entrySet()) {
-                        if (!mappingsEntry.getKey().endsWith(".class")) continue; // Return if not a class file
-
-                        // Write class mappings
-                        fileWriter.write("c\t${mappingsEntry.getKey().removeExtension()}\t${mappingsEntry.getValue().removeExtension()}\n");
-                    }
-                }
-            });
-        }
     }
 }

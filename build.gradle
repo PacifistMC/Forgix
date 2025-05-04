@@ -51,7 +51,9 @@ dependencies {
     annotationProcessor "systems.manifold:manifold-tuple:${manifold.manifoldVersion.get()}"
     annotationProcessor "systems.manifold:manifold-strings:${manifold.manifoldVersion.get()}"
 
+    shade 'net.lingala.zip4j:zip4j:2.11.5'
     shade 'commons-io:commons-io:2.19.0'
+    shade 'com.google.code.gson:gson:2.10.1'
 
     shade('net.fabricmc:tiny-remapper:0.11.1') {
         exclude group: 'org.ow2.asm'
@@ -60,7 +62,10 @@ dependencies {
     shade 'org.ow2.asm:asm-commons:9.8'
     shade 'org.ow2.asm:asm-tree:9.8'
     shade 'org.ow2.asm:asm-util:9.8'
-    shade 'net.lingala.zip4j:zip4j:2.11.5'
+
+    shade fileTree(dir: './Forgix-Multiversion-Mod/common/build/libs', include: '*.jar').filter { file ->
+        !file.name.contains('-javadoc') && !file.name.contains('-sources')
+    }
 
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -75,6 +80,7 @@ shadowJar {
     relocate "org.objectweb.asm", "pacifistmc.libraries.org.objectweb.asm"
     relocate "org.apache.commons.io", "pacifistmc.libraries.org.apache.commons.io"
     relocate "net.lingala.zip4j", "pacifistmc.libraries.net.lingala.zip4j"
+    relocate "com.google", "pacifistmc.libraries.com.google"
 }
 
 downgradeJar {
@@ -121,3 +127,48 @@ test {
 }
 jar.finalizedBy(shadeDowngradedApi)
 javadoc.enabled(false) // Doesn't work well with Manifold
+
+
+// This task builds the multiversion mod and copies it to resources
+tasks.register('buildMultiversionMod', Exec) {
+    description = 'Builds the Forgix-Multiversion-Mod and copies the merged jar to resources'
+    group = 'forgix'
+    
+    // Check if the multiversion jar already exists
+    def resourcesDir = file('src/main/resources/multiversion')
+    def multiversionJar = new File(resourcesDir, 'forgix-multiversion.jar')
+    
+    // Skip the task if the jar already exists
+    onlyIf {
+        !multiversionJar.exists()
+    }
+
+    workingDir = file('./Forgix-Multiversion-Mod')
+
+    // Run assemble and then mergeJars tasks in the multiversion mod project
+    def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+    commandLine isWindows ? 'gradlew.bat' : './gradlew', 'assemble'
+    commandLine isWindows ? 'gradlew.bat' : './gradlew', 'mergeJars'
+
+    doLast {
+        // Create the resources directory if it doesn't exist
+        resourcesDir.mkdirs()
+
+        // Find the merged jar in the multiversion mod's build directory
+        def mergedJarDir = file('./Forgix-Multiversion-Mod/build/merged')
+        def mergedJar = mergedJarDir.listFiles().find { it.name.endsWith('.jar') }
+
+        if (!mergedJar) {
+            throw new GradleException("No merged jar found in ${mergedJarDir}")
+        }
+        // Copy the merged jar to the resources directory
+        copy {
+            from mergedJar
+            into resourcesDir
+            rename { 'forgix-multiversion.jar' }
+        }
+    }
+}
+
+// Run the buildMultiversionMod task before compiling Java sources so that the merged jar is available in resources
+compileJava.dependsOn buildMultiversionMod

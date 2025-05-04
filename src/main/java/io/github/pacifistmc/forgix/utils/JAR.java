@@ -196,6 +196,15 @@ public class JAR {
     }
 
     /**
+     * Get all classes in a JAR file.
+     */
+    public static Set<JarEntry> getClasses(JarFile jarFile) {
+        return Collections.list(jarFile.entries()).stream()
+                .filter(entry -> !entry.isDirectory() && entry.getName().endsWith(".class"))
+                .collect(Collectors.toSet());
+    }
+
+    /**
      * Read a JAR resource as a string.
      */
     public static String getResource(JarFile jarFile, JarEntry resource) {
@@ -232,12 +241,28 @@ public class JAR {
         return !writers.isEmpty();
     }
 
-    public static void addFiles(File jarFIle, Map<File, String> filePameMap) {
-        try (ZipFile zipFile = new ZipFile(jarFIle)) {
-            filePameMap.forEach((file, path) -> zipFile.addFile(file, new ZipParameters() {{
+    /**
+     * Add files to a JAR file.
+     * @param jarFile The JAR file to add to.
+     * @param filesAndNamesMap The map of files to add.
+     */
+    public static void addFiles(File jarFile, Map<File, String> filesAndNamesMap) {
+        try (ZipFile zipFile = new ZipFile(jarFile)) {
+            filesAndNamesMap.forEach((file, path) -> zipFile.addFile(file, new ZipParameters() {{
                 setFileNameInZip(path);
                 setOverrideExistingFilesInZip(true);
             }}));
+        }
+    }
+
+    /**
+     * Remove files from a JAR file.
+     * @param jarFile The JAR file to remove from.
+     * @param fileNames The list of file names to remove.
+     */
+    public static void removeFiles(File jarFile, List<String> fileNames) {
+        try (ZipFile zipFile = new ZipFile(jarFile)) {
+            zipFile.removeFiles(fileNames);
         }
     }
 

@@ -1,8 +1,9 @@
 package io.github.pacifistmc.forgix.tests;
 
+import io.github.pacifistmc.forgix.core.Multiversion;
 import io.github.pacifistmc.forgix.core.Relocator;
-import io.github.pacifistmc.forgix.core.Relocator.TinyClassWriter;
 import io.github.pacifistmc.forgix.utils.JAR;
+import io.github.pacifistmc.forgix.utils.TinyClassWriter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,9 @@ public class CoreTest {
     private File mergeJarA;
     private File mergeJarB;
 
+    private File version_1_16_5;
+    private File version_1_21_5;
+
     @TempDir
     Path tempDir;
 
@@ -66,6 +70,16 @@ public class CoreTest {
         assertNotNull(resource, "Merge B JAR file not found in resources");
         mergeJarB = new File(resource.toURI());
         assertTrue(mergeJarB.exists(), "Merge B JAR file does not exist");
+
+        resource = getClass().getClassLoader().getResource("jars/1.16.5.jar");
+        assertNotNull(resource, "1.16.5 JAR file not found in resources");
+        version_1_16_5 = new File(resource.toURI());
+        assertTrue(version_1_16_5.exists(), "1.16.5 JAR file does not exist");
+
+        resource = getClass().getClassLoader().getResource("jars/1.21.5.jar");
+        assertNotNull(resource, "1.21.5 JAR file not found in resources");
+        version_1_21_5 = new File(resource.toURI());
+        assertTrue(version_1_21_5.exists(), "1.21.5 JAR file does not exist");
     }
 
     @AfterEach
@@ -252,6 +266,21 @@ public class CoreTest {
 
             assertTrue(mergedEntries.containsAll(getJarEntries(mergeJarA)), "Merged JAR should contain all entries from JAR A");
             assertTrue(mergedEntries.containsAll(getJarEntries(mergeJarB)), "Merged JAR should contain all entries from JAR B");
+        }
+    }
+
+    @Test
+    void testMultiversion() throws IOException {
+        // Copy version jars into the temp directory
+        File version_1_16_5_copy = tempDir.resolve("1.16.5.jar").toFile();
+        File version_1_21_5_copy = tempDir.resolve("1.21.5.jar").toFile();
+        FileUtils.copyFile(version_1_16_5, version_1_16_5_copy);
+        FileUtils.copyFile(version_1_21_5, version_1_21_5_copy);
+
+        try (var baos = Multiversion.mergeVersions(List.of(version_1_16_5_copy, version_1_21_5_copy))) {
+            try (var fos = new FileOutputStream(tempDir.resolve("multiversion.jar").toFile())) {
+                baos.writeTo(fos);
+            }
         }
     }
 

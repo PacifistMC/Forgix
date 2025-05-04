@@ -20,6 +20,7 @@ public class FileExtensions {
     }
 
     public static void mustDeleteOnExit(@This File self) {
+        self.deleteOnExit();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> FileExtensions.deleteQuietly(self))); // No, this cannot be replaced with a lambda reference
     }
 }

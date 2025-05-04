@@ -33,7 +33,7 @@ public class StringExtension {
     }
 
     public static String first(@This String self, int n) {
-        return self.substring(0, n);
+        return self.substring(0, Math.min(n, self.length()));
     }
 
     public static String everythingAfterFirst(@This String self, String substring) {
