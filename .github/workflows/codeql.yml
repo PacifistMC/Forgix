@@ -11,7 +11,7 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       security-events: write
       packages: read
@@ -36,9 +36,6 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: 24
-
-    - name: Fix Gradle wrapper permissions
-      run: chmod +x ./gradlew
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
