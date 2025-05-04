@@ -62,7 +62,7 @@ dependencies {
     shade 'org.ow2.asm:asm-util:9.8'
     shade 'net.lingala.zip4j:zip4j:2.11.5'
 
-    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation platform('org.junit:junit-bom:5.12.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
 
