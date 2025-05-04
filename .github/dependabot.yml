@@ -1,3 +1,5 @@
+# GitHub really wants me to add this...
+
 # To get started with Dependabot version updates, you'll need to specify which
 # package ecosystems to update and where the package manifests are located.
 # Please see the documentation for all configuration options:
@@ -9,3 +11,13 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    ignore:
+      # Ignore Gradle plugins
+      - dependency-name: "com.gradle.plugin-publish"
+      - dependency-name: "com.gradleup.shadow"
+      - dependency-name: "org.gradle.toolchains.foojay-resolver-convention"
+      
+      # Ignore JUnit
+      - dependency-name: "org.junit*"
+      - dependency-name: "org.junit:junit-bom"
+      - dependency-name: "org.junit.jupiter:junit-jupiter"
