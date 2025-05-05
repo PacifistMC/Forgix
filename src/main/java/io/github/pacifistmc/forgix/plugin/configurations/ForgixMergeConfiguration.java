@@ -4,6 +4,7 @@ import io.github.pacifistmc.forgix.plugin.ForgixGradlePlugin;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.file.Directory;
+import org.gradle.api.file.FileCollection;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
 import org.gradle.api.file.RegularFileProperty;
@@ -19,7 +20,8 @@ public class ForgixMergeConfiguration {
     private final Property<String> archiveClassifier;
     private final Property<String> archiveVersion;
     private final Property<Directory> destinationDirectory;
-    private final Map<String, MergeLoaderConfiguration> mergeConfigurations;
+    private final Map<String, MergeLoaderConfiguration> mergeConfigurations = new HashMap<>();
+    public MultiversionConfiguration multiversionConfiguration;
 
     private static final Map<String, Consumer<ForgixMergeConfiguration>> LOADER_DEFAULT_METHOD_MAP = new HashMap<>();
 
@@ -30,7 +32,6 @@ public class ForgixMergeConfiguration {
         this.archiveClassifier = objects.property(String.class);
         this.archiveVersion = objects.property(String.class);
         this.destinationDirectory = objects.directoryProperty();
-        this.mergeConfigurations = new HashMap<>();
     }
 
     public Property<Boolean> getSilence() {
@@ -50,7 +51,7 @@ public class ForgixMergeConfiguration {
     }
 
     public Property<Directory> getDestinationDirectory() {
-        return destinationDirectory.convention(ForgixGradlePlugin.rootProject.getLayout().getBuildDirectory().dir("merged"));
+        return destinationDirectory.convention(ForgixGradlePlugin.rootProject.getLayout().getBuildDirectory().dir("forgix"));
     }
 
     // Fabric
@@ -281,11 +282,6 @@ public class ForgixMergeConfiguration {
                 .forEach(consumer -> consumer.accept(this));
     }
 
-    @Inject
-    protected ObjectFactory getObjects() {
-        throw new UnsupportedOperationException();
-    }
-
     public static class MergeLoaderConfiguration {
         @SuppressWarnings("FieldMayBeFinal") // We use afterEvaluate so this can't be final
         private RegularFileProperty inputJar;
@@ -298,5 +294,37 @@ public class ForgixMergeConfiguration {
         public RegularFileProperty getInputJar() {
             return inputJar;
         }
+    }
+
+    // Multiversion stuff
+
+    public void multiversion(Action<? super MultiversionConfiguration> action) {
+        Action<? super Project> afterEvaluateAction = _ -> action.execute(multiversionConfiguration = new MultiversionConfiguration(getObjects()));
+        if (ForgixGradlePlugin.rootProject.getState().getExecuted()) {
+            afterEvaluateAction.execute(ForgixGradlePlugin.rootProject);
+            return;
+        }
+        ForgixGradlePlugin.rootProject.afterEvaluate(afterEvaluateAction);
+    }
+
+    public static class MultiversionConfiguration {
+        @SuppressWarnings("FieldMayBeFinal") // We use afterEvaluate so this can't be final
+        private FileCollection inputJars;
+
+        @Inject
+        public MultiversionConfiguration(ObjectFactory objects) {
+            this.inputJars = objects.fileCollection();
+        }
+
+        public FileCollection getInputJars() {
+            return inputJars;
+        }
+    }
+
+    // Internal Gradle stuff
+
+    @Inject
+    protected ObjectFactory getObjects() {
+        throw new UnsupportedOperationException();
     }
 }

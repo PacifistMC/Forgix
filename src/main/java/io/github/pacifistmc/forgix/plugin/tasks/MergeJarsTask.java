@@ -69,7 +69,7 @@ public class MergeJarsTask extends Jar {
 
         running.set(true);
         try {
-            Forgix.run(jarFileProjectMap, mergedJar, settings.getSilence().get());
+            Forgix.mergeLoaders(jarFileProjectMap, mergedJar, settings.getSilence().get());
             hash.set(JAR.computeHash(jarFileProjectMap.keySet()));
         } finally {
             running.set(false);

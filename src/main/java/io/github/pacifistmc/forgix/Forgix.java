@@ -1,5 +1,6 @@
 package io.github.pacifistmc.forgix;
 
+import io.github.pacifistmc.forgix.core.Multiversion;
 import io.github.pacifistmc.forgix.core.RelocationConfig;
 import io.github.pacifistmc.forgix.core.Relocator;
 import io.github.pacifistmc.forgix.utils.JAR;
@@ -13,11 +14,11 @@ import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 public class Forgix {
-    public static final String VERSION = "1.3.4";
+    public static final String VERSION = "2.0.0-SNAPSHOT.1";
     private static final String MANIFEST_VERSION_KEY = "Forgix-Version";
     private static final String MANIFEST_MAPPINGS_KEY = "Forgix-Mappings";
 
-    public static void run(Map<File, String> jarFileProjectMap, File outputFile, boolean silence = false) {
+    public static void mergeLoaders(Map<File, String> jarsAndLoadersMap, File outputFile, boolean silence = false) {
         if (!silence) {
             """
             Thank you for using Forgix!
@@ -26,7 +27,7 @@ public class Forgix {
         }
 
         List<RelocationConfig> configs = new ArrayList<>();
-        jarFileProjectMap.forEach((jarFile, conflictPrefix) -> configs.add(new RelocationConfig(new JarFile(jarFile), conflictPrefix)));
+        jarsAndLoadersMap.forEach((jar, loader) -> configs.add(new RelocationConfig(new JarFile(jar), loader)));
         Relocator.relocate(configs);
 
         Map<File, String> tinyFiles = configs.stream()
@@ -36,7 +37,7 @@ public class Forgix {
                         file -> "META-INF/forgix/${file.getName()}"
                 ));
 
-        try(ByteArrayOutputStream baos = JAR.combineJars(jarFileProjectMap.keySet(), extraManifestAttributes:new HashMap<>() {
+        try(ByteArrayOutputStream baos = JAR.combineJars(jarsAndLoadersMap.keySet(), extraManifestAttributes:new HashMap<>() {
             {
                 put(MANIFEST_VERSION_KEY, VERSION);
                 put(MANIFEST_MAPPINGS_KEY, String.join(";", tinyFiles.values()));
@@ -50,7 +51,12 @@ public class Forgix {
         JAR.setPerms(outputFile);
     }
 
-    public static void run(List<File> jarFiles, File outputFile) {
-        run(jarFiles.stream().collect(Collectors.toMap(file -> file, _ -> UUID.randomUUID().toString().first(8))), outputFile);
+    public static void mergeVersions(Collection<File> jarFiles, File outputFile) {
+        try (var baos = Multiversion.mergeVersions(jarFiles)) {
+            try (var fos = new FileOutputStream(outputFile)) {
+                baos.writeTo(fos);
+            }
+        }
+        JAR.setPerms(outputFile);
     }
 }

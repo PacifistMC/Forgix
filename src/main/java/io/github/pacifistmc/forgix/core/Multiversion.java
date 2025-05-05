@@ -30,9 +30,10 @@ public class Multiversion {
     static {
         tempDir.mustDeleteOnExit();
 
-        var multiversionJarResource = Multiversion.class.getResource("/multiversion/forgix-multiversion.jar");
-        if (multiversionJarResource != null) {
-            FileUtils.copyFile(new File(multiversionJarResource.toURI()), tempDir.toPath().resolve("forgix-multiversion.jar").toFile());
+
+        try (var multiversionJarResource = Multiversion.class.getResourceAsStream("/multiversion/forgix-multiversion.jar")) {
+            if (multiversionJarResource == null) throw new RuntimeException("Could not find internal multiversion jar. This should never happen!");
+            IOUtils.copy(multiversionJarResource, Files.newOutputStream(multiversionJar.toPath()));
         }
 
         try (var jarFile = new JarFile(multiversionJar)) {
@@ -89,9 +90,11 @@ public class Multiversion {
             zos.closeEntry();
 
             // Create the fabric mod json file
-            zos.putNextEntry(new ZipEntry("fabric.mod.json"));
-            zos.write(gson.toJson(new FabricModJson(versionsJson.versions.values(), fabricModId)).getBytes());
-            zos.closeEntry();
+            if (fabricModId != null) {
+                zos.putNextEntry(new ZipEntry("fabric.mod.json"));
+                zos.write(gson.toJson(new FabricModJson(versionsJson.versions.values(), fabricModId)).getBytes());
+                zos.closeEntry();
+            }
 
             zos.finish();
         }
@@ -126,7 +129,7 @@ public class Multiversion {
                 }
 
                 var fabricModsJson = zipFile.getFileHeader("fabric.mod.json");
-                if (fabricModsJson != null) {
+                if (fabricModsJson != null && fabricModId.get() == null) {
                     fabricModId.set(gson.fromJson(IOUtils.toString(zipFile.getInputStream(fabricModsJson), StandardCharsets.UTF_8), FabricModJson.class).id);
                 }
 
@@ -175,7 +178,7 @@ public class Multiversion {
                 jarEntry.put("file", path);
                 this.jars.add(jarEntry);
             });
-            if (modId != null) this.depends.put(modId, "*");
+            this.depends.put(modId, "*");
         }
     }
 }

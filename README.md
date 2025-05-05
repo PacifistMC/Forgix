@@ -90,7 +90,7 @@ Remember to change `<version>` with the latest version! You can get the latest v
 </details>
 
 Now run `mergeJars` and it should work!\
-Builds by default are generated in `build/merged` but can be altered.
+Builds by default are generated in `build/forgix` but can be altered.
 
 <details closed>
 <summary>OPTIONAL: Configuration</summary>
@@ -211,8 +211,10 @@ forgix {
 If you don’t want to run `mergeJars` manually then you could add this to the end of your build.gradle
 
 ```groovy
-build.finalizedBy(mergeJars)
-assemble.finalizedBy(mergeJars)
+subprojects {
+    build.finalizedBy(mergeJars)
+    assemble.finalizedBy(mergeJars)
+}
 ```
 
 ### This project feels dead
