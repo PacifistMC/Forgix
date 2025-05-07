@@ -5,7 +5,6 @@ import io.github.pacifistmc.forgix.Forgix;
 import io.github.pacifistmc.forgix.multiversion.versioning.ForgixVersionJson;
 import io.github.pacifistmc.forgix.utils.JAR;
 import net.lingala.zip4j.ZipFile;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 
 import java.io.ByteArrayOutputStream;
@@ -18,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
+import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -60,6 +60,7 @@ public class Multiversion {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (var zos = new ZipOutputStream(baos)) {
             var versionsJson = new ForgixVersionJson();
+            zos.setLevel(9); // Maximum compression
 
             // Add contents from the multiversion jar
             try (var zipFile = new ZipFile(multiversionJar)) {
@@ -75,11 +76,57 @@ public class Multiversion {
                 });
             }
 
-            // Add the jars
+            // First, identify common files across all jars
+            Map<String, byte[]> commonFiles = findCommonFiles(versionsAndFilePathMap.values());
+
+            // Add common files to the main jar (the jar we're creating)
+            commonFiles.forEach((fileName, content) -> {
+                if (isMetadataFile(fileName)) return; // Skip metadata files since they should be included in each jar separately
+                zos.putNextEntry(new ZipEntry(fileName));
+                zos.write(content);
+                zos.closeEntry();
+            });
+
+//            // Relocate conflicting files to avoid module export issues on forge
+//            var relocationConfigs = new ArrayList<RelocationConfig>();
+//            versionsAndFilePathMap.forEach((_, path) -> relocationConfigs.add(new RelocationConfig(new JarFile(path.toFile()), "forgix_multiversion_${UUID.randomUUID().toString().replace(\"-\", \"\")}")));
+//            Relocator.relocateClasses(relocationConfigs);
+
+            // Add the version-specific jars with only unique files
             versionsAndFilePathMap.forEach((version, path) -> {
+                // Create a temporary STORED jar with only unique files
+                ByteArrayOutputStream storedJarBytes = new ByteArrayOutputStream();
+                try (var sourceJar = new ZipFile(path.toFile());
+                     var storedZos = new ZipOutputStream(storedJarBytes)) {
+
+                    // Set default method to STORED for all entries
+                    storedZos.setMethod(ZipOutputStream.STORED);
+
+                    // Copy only unique entries or metadata files as STORED
+                    sourceJar.getFileHeaders().forEach(header -> {
+                        String fileName = header.getFileName();
+
+                        // Skip common files unless they're metadata files which should be included in each jar even if they're common
+                        if (commonFiles.containsKey(fileName) && !isMetadataFile(fileName)) return;
+
+                        ZipEntry newEntry = new ZipEntry(fileName);
+                        byte[] content = sourceJar.getInputStream(header).readAllBytes();
+
+                        // Set required fields for STORED entries
+                        newEntry.setMethod(ZipEntry.STORED);
+                        newEntry.setSize(content.length);
+                        newEntry.setCrc(calculateCrc(content));
+
+                        storedZos.putNextEntry(newEntry);
+                        storedZos.write(content);
+                        storedZos.closeEntry();
+                    });
+                }
+
+                // Add the STORED jar to the output
                 var pathInJar = "META-INF/forgix/multiversion/${path.fileName}";
                 zos.putNextEntry(new ZipEntry(pathInJar));
-                zos.write(Files.readAllBytes(path));
+                zos.write(storedJarBytes.toByteArray());
                 zos.closeEntry();
                 versionsJson.getVersions().put(version, pathInJar);
             });
@@ -99,6 +146,61 @@ public class Multiversion {
             zos.finish();
         }
         return baos;
+    }
+
+    /**
+     * Finds files that are common across all jars (identical content)
+     * TODO: Make this better after I'm done with testing this
+     */
+    private static Map<String, byte[]> findCommonFiles(Collection<Path> jarPaths) {
+        // First, collect all files from all jars
+        Map<String, Map<String, byte[]>> allFiles = new HashMap<>();
+        Map<String, Integer> fileOccurrences = new HashMap<>();
+
+        for (Path jarPath : jarPaths) {
+            String jarId = jarPath.getFileName().toString();
+            Map<String, byte[]> jarContents = new HashMap<>();
+            allFiles.put(jarId, jarContents);
+
+            try (var zipFile = new ZipFile(jarPath.toFile())) {
+                zipFile.getFileHeaders().forEach(header -> {
+                    if (!header.isDirectory()) {
+                        String fileName = header.getFileName();
+                        byte[] content = zipFile.getInputStream(header).readAllBytes();
+                        jarContents.put(fileName, content);
+                        fileOccurrences.merge(fileName, 1, Integer::sum);
+                    }
+                });
+            }
+        }
+
+        // Find files that appear in all jars with identical content
+        Map<String, byte[]> commonFiles = new HashMap<>();
+        int totalJars = jarPaths.size();
+
+        for (String fileName : fileOccurrences.keySet()) {
+            if (fileOccurrences.get(fileName) == totalJars) {
+                // This file appears in all jars, check if content is identical
+                byte[] firstContent = null;
+                boolean allMatch = true;
+
+                for (Map<String, byte[]> jarContents : allFiles.values()) {
+                    byte[] content = jarContents.get(fileName);
+                    if (firstContent == null) {
+                        firstContent = content;
+                    } else if (!Arrays.equals(firstContent, content)) {
+                        allMatch = false;
+                        break;
+                    }
+                }
+
+                if (allMatch && firstContent != null) {
+                    commonFiles.put(fileName, firstContent);
+                }
+            }
+        }
+
+        return commonFiles;
     }
 
     /**
@@ -180,5 +282,43 @@ public class Multiversion {
             });
             this.depends.put(modId, "*");
         }
+    }
+
+    // Helper method to calculate CRC
+    private static long calculateCrc(byte[] data) {
+        var crc = new CRC32();
+        crc.update(data);
+        return crc.getValue();
+    }
+
+    // These are the set of files that are kept in each version-specific jar if they exist and aren't added to the main jar
+    // Even if they are common since adding them to the main jar would cause issues
+    private static final Set<String> COMMON_METADATA_FILES = Set.of(
+            "META-INF/mods.toml",
+            "META-INF/neoforge.mods.toml",
+            "pack.mcmeta",
+            "fabric.mod.json"
+    );
+    private static final Set<String> META_INF_PREFIXES = Set.of(
+            "META-INF/MANIFEST.MF",
+            "META-INF/maven/",
+            "META-INF/services/"
+    );
+    private static final Set<String> META_INF_SUFFIXES = Set.of(
+            ".png"
+    );
+
+    /**
+     * Determines if a file is a metadata file that should be kept in version-specific jars
+     */
+    private static boolean isMetadataFile(String fileName) {
+        if (COMMON_METADATA_FILES.contains(fileName)) return true;
+        for (String prefix : META_INF_PREFIXES) {
+            if (fileName.startsWith(prefix)) return true;
+        }
+        for (String suffix : META_INF_SUFFIXES) {
+            if (fileName.endsWith(suffix)) return true;
+        }
+        return false;
     }
 }

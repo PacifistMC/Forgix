@@ -71,12 +71,12 @@ public class CoreTest {
         mergeJarB = new File(resource.toURI());
         assertTrue(mergeJarB.exists(), "Merge B JAR file does not exist");
 
-        resource = getClass().getClassLoader().getResource("jars/1.16.5.jar");
+        resource = getClass().getClassLoader().getResource("jars/multiversion/1.16.5.jar");
         assertNotNull(resource, "1.16.5 JAR file not found in resources");
         version_1_16_5 = new File(resource.toURI());
         assertTrue(version_1_16_5.exists(), "1.16.5 JAR file does not exist");
 
-        resource = getClass().getClassLoader().getResource("jars/1.21.5.jar");
+        resource = getClass().getClassLoader().getResource("jars/multiversion/1.21.5.jar");
         assertNotNull(resource, "1.21.5 JAR file not found in resources");
         version_1_21_5 = new File(resource.toURI());
         assertTrue(version_1_21_5.exists(), "1.21.5 JAR file does not exist");
