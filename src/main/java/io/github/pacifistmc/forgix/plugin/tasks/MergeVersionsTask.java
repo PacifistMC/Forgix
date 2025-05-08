@@ -19,9 +19,9 @@ public class MergeVersionsTask extends Jar {
 
 
     public MergeVersionsTask() {
-        getArchiveBaseName().convention(settings.getArchiveBaseName());
-        getArchiveClassifier().convention(settings.getArchiveClassifier());
-        getArchiveVersion().convention("${settings.getArchiveVersion()}-multi");
+        getArchiveBaseName().convention(settings.getArchiveBaseName().get());
+        getArchiveClassifier().convention(settings.getArchiveClassifier().get());
+        getArchiveVersion().convention("${settings.getArchiveVersion().get()}-multi");
         getDestinationDirectory().convention(settings.destinationDirectory.get().dir("multiversion"));
 
         var destDir = getDestinationDirectory().get().asFile; destDir.mkdirs();

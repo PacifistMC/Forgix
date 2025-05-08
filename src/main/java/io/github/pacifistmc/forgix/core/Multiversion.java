@@ -24,8 +24,12 @@ import java.util.zip.ZipOutputStream;
 public class Multiversion {
     private static final File tempDir = Files.createTempDirectory("forgix-multiversion").toFile();
     private static final File multiversionJar = tempDir.toPath().resolve("forgix-multiversion.jar").toFile();
-    private static final String uuid = "forgix_multiversion_${UUID.randomUUID().toString().replace(\"-\", \"\")}";
+    private static final String uuid = generateMultiversionUUID();
     private static final Gson gson = new Gson();
+
+    private static String generateMultiversionUUID() {
+        return "forgix_multiversion_${UUID.randomUUID().toString().replace(\"-\", \"\")}".first(60);
+    }
 
     static {
         tempDir.mustDeleteOnExit();
@@ -79,18 +83,35 @@ public class Multiversion {
             // First, identify common files across all jars
             Map<String, byte[]> commonFiles = findCommonFiles(versionsAndFilePathMap.values());
 
-            // Add common files to the main jar (the jar we're creating)
-            commonFiles.forEach((fileName, content) -> {
-                if (isMetadataFile(fileName)) return; // Skip metadata files since they should be included in each jar separately
-                zos.putNextEntry(new ZipEntry(fileName));
-                zos.write(content);
-                zos.closeEntry();
-            });
+            // Add common files to the temporary STORED jar (this will be the shared library jar)
+            ByteArrayOutputStream sharedJarBytes = new ByteArrayOutputStream();
+            try (var storedZos = new ZipOutputStream(sharedJarBytes)) {
+                commonFiles.forEach((fileName, content) -> {
+                    if (isMetadataFile(fileName)) return; // Skip metadata files since they should be included in each jar separately
+                    ZipEntry entry = new ZipEntry(fileName);
+                    entry.setMethod(ZipEntry.STORED);
+                    entry.setSize(content.length);
+                    entry.setCrc(calculateCrc(content));
+                    storedZos.putNextEntry(entry);
+                    storedZos.write(content);
+                    storedZos.closeEntry();
+                });
 
-//            // Relocate conflicting files to avoid module export issues on forge
-//            var relocationConfigs = new ArrayList<RelocationConfig>();
-//            versionsAndFilePathMap.forEach((_, path) -> relocationConfigs.add(new RelocationConfig(new JarFile(path.toFile()), "forgix_multiversion_${UUID.randomUUID().toString().replace(\"-\", \"\")}")));
-//            Relocator.relocateClasses(relocationConfigs);
+                // Create a dummy fabric.mod.json for the shared jar
+                if (fabricModId != null) {
+                    storedZos.putNextEntry(new ZipEntry("fabric.mod.json"));
+                    storedZos.write(gson.toJson(new FabricModJson(generateMultiversionUUID())).getBytes());
+                    storedZos.closeEntry();
+                }
+            }
+            String sharedJarPath = null;
+            if (sharedJarBytes.size() > 0) {
+                sharedJarPath = "META-INF/forgix/multiversion/shared.jar";
+                zos.putNextEntry(new ZipEntry(sharedJarPath));
+                zos.write(sharedJarBytes.toByteArray());
+                zos.closeEntry();
+                versionsJson.setSharedLibrary(sharedJarPath);
+            }
 
             // Add the version-specific jars with only unique files
             versionsAndFilePathMap.forEach((version, path) -> {
@@ -139,7 +160,7 @@ public class Multiversion {
             // Create the fabric mod json file
             if (fabricModId != null) {
                 zos.putNextEntry(new ZipEntry("fabric.mod.json"));
-                zos.write(gson.toJson(new FabricModJson(versionsJson.versions.values(), fabricModId)).getBytes());
+                zos.write(gson.toJson(new FabricModJson(versionsJson.versions.values(), sharedJarPath, fabricModId)).getBytes());
                 zos.closeEntry();
             }
 
@@ -264,7 +285,7 @@ public class Multiversion {
      */
     public static class FabricModJson {
         public int schemaVersion = 1;
-        public String id = "${uuid.first(60)}";
+        public String id = uuid;
         public String version = Forgix.VERSION;
         public List<Map<String, String>> jars = new ArrayList<>();
         public Map<String, Object> custom = Map.of(
@@ -274,13 +295,14 @@ public class Multiversion {
         );
         public Map<String, Object> depends = new HashMap<>();
 
-        public FabricModJson(Collection<String> jars, String modId) {
-            jars.forEach(path -> {
-                Map<String, String> jarEntry = new HashMap<>();
-                jarEntry.put("file", path);
-                this.jars.add(jarEntry);
-            });
+        public FabricModJson(Collection<String> jars, String sharedJar, String modId) {
+            if (sharedJar != null) this.jars.add(Map.of("file", sharedJar));
+            jars.forEach(path -> this.jars.add(Map.of("file", path)));
             this.depends.put(modId, "*");
+        }
+
+        public FabricModJson(String id) {
+            this.id = id;
         }
     }
 
