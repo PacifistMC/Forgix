@@ -53,7 +53,7 @@ dependencies {
 
     shade 'net.lingala.zip4j:zip4j:2.11.5'
     shade 'commons-io:commons-io:2.19.0'
-    shade 'com.google.code.gson:gson:2.10.1'
+    shade 'com.google.code.gson:gson:2.13.1'
 
     shade('net.fabricmc:tiny-remapper:0.11.1') {
         exclude group: 'org.ow2.asm'
