@@ -54,7 +54,7 @@ public class GradleProjectUtils {
                 }
             }
         } catch (Exception e) { // This is very unlikely to happen
-            "Failed to find best output file for project ${project.getName()}: ${e.getMessage()}".errorPrintln();
+            "Failed to find best output file for project ${project.getName()}: ${e.getMessage()}".err();
         }
         return bestFile;
     }

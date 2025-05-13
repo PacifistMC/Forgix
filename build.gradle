@@ -16,8 +16,8 @@ version = (constantsSource =~ /\s+VERSION\s*=\s*"(.*)";/)[0][1]
 
 configurations {
     shade
-    implementation.extendsFrom shade
-    testImplementation.extendsFrom implementation
+    compileOnly.extendsFrom shade
+    testImplementation.extendsFrom compileOnly
     testAnnotationProcessor.extendsFrom annotationProcessor
 }
 
@@ -81,6 +81,8 @@ shadowJar {
     relocate "org.apache.commons.io", "pacifistmc.libraries.org.apache.commons.io"
     relocate "net.lingala.zip4j", "pacifistmc.libraries.net.lingala.zip4j"
     relocate "com.google", "pacifistmc.libraries.com.google"
+
+    exclude 'META-INF/services/**'
 }
 
 downgradeJar {
@@ -119,6 +121,10 @@ publishing {
 }
 
 tasks.withType(GenerateModuleMetadata).configureEach {
+    enabled = false
+}
+
+tasks.withType(Sign).configureEach {
     enabled = false
 }
 

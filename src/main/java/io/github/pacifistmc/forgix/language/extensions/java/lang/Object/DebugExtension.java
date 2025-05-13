@@ -1,6 +1,5 @@
 package io.github.pacifistmc.forgix.language.extensions.java.lang.Object;
 
-import io.github.pacifistmc.forgix.Forgix;
 import manifold.ext.rt.api.Extension;
 import manifold.ext.rt.api.This;
 
@@ -19,8 +18,16 @@ public class DebugExtension {
     /**
      * Prints the object to stderr.
      */
-    public static void errorPrintln(@This Object self) {
+    public static void err(@This Object self) {
         System.err.println(self);
+    }
+
+    /**
+     * Prints the object to stderr and exits the program.
+     */
+    public static void errExit(@This Object self) {
+        System.err.println(self);
+        System.exit(1);
     }
 
     /**

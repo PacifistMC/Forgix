@@ -14,9 +14,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -170,61 +172,6 @@ public class Multiversion {
     }
 
     /**
-     * Finds files that are common across all jars (identical content)
-     * TODO: Make this better after I'm done with testing this
-     */
-    private static Map<String, byte[]> findCommonFiles(Collection<Path> jarPaths) {
-        // First, collect all files from all jars
-        Map<String, Map<String, byte[]>> allFiles = new HashMap<>();
-        Map<String, Integer> fileOccurrences = new HashMap<>();
-
-        for (Path jarPath : jarPaths) {
-            String jarId = jarPath.getFileName().toString();
-            Map<String, byte[]> jarContents = new HashMap<>();
-            allFiles.put(jarId, jarContents);
-
-            try (var zipFile = new ZipFile(jarPath.toFile())) {
-                zipFile.getFileHeaders().forEach(header -> {
-                    if (!header.isDirectory()) {
-                        String fileName = header.getFileName();
-                        byte[] content = zipFile.getInputStream(header).readAllBytes();
-                        jarContents.put(fileName, content);
-                        fileOccurrences.merge(fileName, 1, Integer::sum);
-                    }
-                });
-            }
-        }
-
-        // Find files that appear in all jars with identical content
-        Map<String, byte[]> commonFiles = new HashMap<>();
-        int totalJars = jarPaths.size();
-
-        for (String fileName : fileOccurrences.keySet()) {
-            if (fileOccurrences.get(fileName) == totalJars) {
-                // This file appears in all jars, check if content is identical
-                byte[] firstContent = null;
-                boolean allMatch = true;
-
-                for (Map<String, byte[]> jarContents : allFiles.values()) {
-                    byte[] content = jarContents.get(fileName);
-                    if (firstContent == null) {
-                        firstContent = content;
-                    } else if (!Arrays.equals(firstContent, content)) {
-                        allMatch = false;
-                        break;
-                    }
-                }
-
-                if (allMatch && firstContent != null) {
-                    commonFiles.put(fileName, firstContent);
-                }
-            }
-        }
-
-        return commonFiles;
-    }
-
-    /**
      * Merges multiple versions of a mod into a single JAR file.
      * Automatically determines the version ranges from the mods.toml file.
      * @param jars The collection of JAR files to merge
@@ -306,6 +253,45 @@ public class Multiversion {
         }
     }
 
+    /**
+     * Finds files that are common across all jars (identical content)
+     */
+    private static Map<String, byte[]> findCommonFiles(Collection<Path> jarPaths) {
+        var totalJars = jarPaths.size();
+        
+        // Track file occurrences and content hashes across all jars
+        var fileOccurrences = new ConcurrentHashMap<String, AtomicInteger>();
+        var fileContentMap = new ConcurrentHashMap<String, Map<Integer, byte[]>>();
+
+        // Process all jars in parallel
+        jarPaths.parallelStream().forEach(jarPath -> {
+            try (var zipFile = new ZipFile(jarPath.toFile())) {
+                zipFile.getFileHeaders().parallelStream()
+                    .filter(header -> !header.isDirectory())
+                    .forEach(header -> {
+                        var fileName = header.getFileName();
+                        var content = zipFile.getInputStream(header).readAllBytes();
+
+                        // Track occurrence count using AtomicInteger
+                        fileOccurrences.computeIfAbsent(fileName, _ -> new AtomicInteger(0)).incrementAndGet();
+//                        fileOccurrences.merge(fileName, 1, Integer::sum);
+                        
+                        // Store content by hash (so we know which files have identical content)
+                        fileContentMap.computeIfAbsent(fileName, _ -> new ConcurrentHashMap<>()).put(Arrays.hashCode(content), content);
+                    });
+            }
+        });
+        
+        // Find files that appear in all jars with identical content
+        return fileOccurrences.entrySet().parallelStream()
+            .filter(entry -> entry.getValue().get() == totalJars) // File appears in all jars
+            .filter(entry -> fileContentMap.get(entry.getKey()).size() == 1) // File has identical content across all jars
+            .collect(Collectors.toConcurrentMap(
+                Map.Entry::getKey,
+                entry -> fileContentMap.get(entry.getKey()).values().iterator().next()
+            ));
+    }
+    
     // Helper method to calculate CRC
     private static long calculateCrc(byte[] data) {
         var crc = new CRC32();

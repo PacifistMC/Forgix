@@ -1,5 +1,6 @@
 package io.github.pacifistmc.forgix.tests;
 
+import io.github.pacifistmc.forgix.Forgix;
 import io.github.pacifistmc.forgix.core.Multiversion;
 import io.github.pacifistmc.forgix.core.Relocator;
 import io.github.pacifistmc.forgix.utils.JAR;
@@ -270,6 +271,43 @@ public class CoreTest {
     }
 
     @Test
+    void testMergeCLI() throws IOException {
+        // Copy merge jars into the temp directory
+        File mergeJarACopy = tempDir.resolve("merge-a.jar").toFile();
+        File mergeJarBCopy = tempDir.resolve("merge-b.jar").toFile();
+        FileUtils.copyFile(mergeJarA, mergeJarACopy);
+        FileUtils.copyFile(mergeJarB, mergeJarBCopy);
+
+        // Merge using CLI
+        File mergedJar = tempDir.resolve("merged.jar").toFile();
+        Forgix.main(new String[] {
+                "mergeJars",
+                "--output", mergedJar.getAbsolutePath(),
+                "--loaderA", mergeJarACopy.getAbsolutePath(),
+                "--loaderB", mergeJarBCopy.getAbsolutePath()
+        });
+
+        // Verify the merged JAR contains all entries from both JARs
+        try (JarFile mergedJarFile = new JarFile(mergedJar);
+             JarFile mergeJarA = new JarFile(mergeJarACopy);
+             JarFile mergeJarB = new JarFile(mergeJarBCopy)) {
+            Set<String> mergedEntries = new HashSet<>();
+            mergedJarFile.entries().asIterator().forEachRemaining(entry -> {
+                String name = entry.getName();
+                mergedEntries.add(name);
+            });
+
+            if (debug) {
+                "Entries in merged JAR:".println();
+                mergedEntries.forEach(System.out::println);
+            }
+
+            assertTrue(mergedEntries.containsAll(getJarEntries(mergeJarA)), "Merged JAR should contain all entries from JAR A");
+            assertTrue(mergedEntries.containsAll(getJarEntries(mergeJarB)), "Merged JAR should contain all entries from JAR B");
+        }
+    }
+
+    @Test
     void testMultiversion() throws IOException {
         // Copy version jars into the temp directory
         File version_1_16_5_copy = tempDir.resolve("1.16.5.jar").toFile();
@@ -280,6 +318,32 @@ public class CoreTest {
         try (var baos = Multiversion.mergeVersions(List.of(version_1_16_5_copy, version_1_21_5_copy))) {
             try (var fos = new FileOutputStream(tempDir.resolve("multiversion.jar").toFile())) {
                 baos.writeTo(fos);
+            }
+        }
+    }
+
+    @Test
+    void testMultiversionCLI() throws IOException {
+        // Copy version jars into the temp directory
+        File version_1_16_5_copy = tempDir.resolve("1.16.5.jar").toFile();
+        File version_1_21_5_copy = tempDir.resolve("1.21.5.jar").toFile();
+        FileUtils.copyFile(version_1_16_5, version_1_16_5_copy);
+        FileUtils.copyFile(version_1_21_5, version_1_21_5_copy);
+
+        // Merge using CLI
+        File mergedJar = tempDir.resolve("multiversion.jar").toFile();
+        Forgix.main(new String[] {
+                "mergeVersions",
+                "--output", mergedJar.getAbsolutePath(),
+                version_1_16_5_copy.getAbsolutePath(),
+                version_1_21_5_copy.getAbsolutePath()
+        });
+
+        // List entries in the merged jar for debugging
+        if (debug) {
+            try (JarFile mergedJarFile = new JarFile(mergedJar)) {
+                "Entries in merged JAR:".println();
+                mergedJarFile.entries().asIterator().forEachRemaining(System.out::println);
             }
         }
     }
