@@ -211,9 +211,29 @@ forgix {
 If you don’t want to run `mergeJars` manually then you could add this to the end of your build.gradle
 
 ```groovy
-subprojects {
-    build.finalizedBy(mergeJars)
-    assemble.finalizedBy(mergeJars)
+// most projects:
+gradle.projectsEvaluated {
+  rootProject.tasks.mergeJars.dependsOn rootProject.subprojects.collect {
+    it.tasks.findByName('remapJar') // Make mergeJars depend on all remapJar tasks from subprojects so we can use its outputs
+  }.findAll { it != null }.each {
+    it.finalizedBy(rootProject.tasks.mergeJars) // Make mergeJars run after all remapJar tasks
+  }
+}
+
+// or a more general solution:
+gradle.projectsEvaluated {
+  rootProject.subprojects.collect { // Make mergeJars run after assemble/build
+    [it.tasks.findByName('assemble'), it.tasks.findByName('build')]
+  }.flatten().findAll { it != null }.each {
+    it.finalizedBy(rootProject.tasks.mergeJars)
+  }
+  rootProject.subprojects.each { // Make mergeJars be able to use inputs from any task that outputs a jar
+    it.tasks.findAll { task ->
+      task.outputs.files.files.any { it.name.endsWith('.jar') }
+    }.each {
+      rootProject.tasks.mergeJars.mustRunAfter(it)
+    }
+  }
 }
 ```
 
