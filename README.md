@@ -100,7 +100,7 @@ This is an example configuration to give a general idea.
 
 ```groovy
 forgix {
-    destinationDirectory = layout.projectDirectory.dir("build/merged")
+    destinationDirectory = layout.projectDirectory.dir("build/forgix")
     archiveClassifier = "merged"
     archiveVersion = "1.0.0"
     
@@ -122,6 +122,9 @@ forgix {
 - `silence` (Boolean)
   - Whether to silence the thank you message.
   - Defaults to `false`.
+- `autoRun` (Boolean)
+  - Whether to automatically run the `mergeJars` task.
+  - Defaults to `false`.
 - `archiveClassifier` (String)
   - Sets the classifier for the merged archive.
   - Defaults to a string joining all the platforms.
@@ -130,7 +133,7 @@ forgix {
   - Defaults to the root project's version.
 - `destinationDirectory` (Directory)
   - Sets the directory where the merged jar will be placed.
-  - Defaults to `build/merged` in the root project.
+  - Defaults to `build/forgix` in the root project.
 
 ##### Loader configurations
 Forgix supports various modloaders and plugin platforms. For each one, you can either call the method with no arguments to use defaults, or provide a configuration block:\
@@ -190,50 +193,31 @@ An example of a complete Forgix configuration:
 
 ```groovy
 forgix {
-  silence = false
-  archiveClassifier = "all-platforms"
-  archiveVersion = "1.0.0"
-  destinationDirectory = layout.projectDirectory.dir("build/merged")
-
-  paper()
-  fabric()
-  forge {
-    inputJar = project(":forge").tasks.shadowJar.archiveFile
-  }
-  merge("customLoader") {
-    inputJar = project(":customLoader").tasks.jar.archiveFile
-  }
+    silence = false
+    autoRun = false
+    archiveClassifier = "all-platforms"
+    archiveVersion = "1.0.0"
+    destinationDirectory = layout.projectDirectory.dir("build/forgix")
+    
+    paper()
+    fabric()
+    forge {
+      inputJar = project(":forge").tasks.remapJar.archiveFile
+    }
+    merge("customLoader") {
+      inputJar = project(":customLoader").tasks.jar.archiveFile
+    }
 }
 ```
 ---
 </details>
 
-If you don’t want to run `mergeJars` manually then you could add this to the end of your build.gradle
+If you don’t want to run `mergeJars` manually then you can set this\
+This will automatically run `mergeJars` at the end if you run the global `assemble` or `build` task.
 
 ```groovy
-// most projects:
-gradle.projectsEvaluated {
-  rootProject.tasks.mergeJars.dependsOn rootProject.subprojects.collect {
-    it.tasks.findByName('remapJar') // Make mergeJars depend on all remapJar tasks from subprojects so we can use its outputs
-  }.findAll { it != null }.each {
-    it.finalizedBy(rootProject.tasks.mergeJars) // Make mergeJars run after all remapJar tasks
-  }
-}
-
-// or a more general solution:
-gradle.projectsEvaluated {
-  rootProject.subprojects.collect { // Make mergeJars run after assemble/build
-    [it.tasks.findByName('assemble'), it.tasks.findByName('build')]
-  }.flatten().findAll { it != null }.each {
-    it.finalizedBy(rootProject.tasks.mergeJars)
-  }
-  rootProject.subprojects.each { // Make mergeJars be able to use inputs from any task that outputs a jar
-    it.tasks.findAll { task ->
-      task.outputs.files.files.any { it.name.endsWith('.jar') }
-    }.each {
-      rootProject.tasks.mergeJars.mustRunAfter(it)
-    }
-  }
+forgix {
+    autoRun = true
 }
 ```
 

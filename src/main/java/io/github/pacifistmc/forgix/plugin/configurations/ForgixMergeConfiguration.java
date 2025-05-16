@@ -16,6 +16,7 @@ import java.util.function.Consumer;
 
 public class ForgixMergeConfiguration {
     private final Property<Boolean> silence;
+    private final Property<Boolean> autoRun;
     private final Property<String> archiveBaseName;
     private final Property<String> archiveClassifier;
     private final Property<String> archiveVersion;
@@ -28,6 +29,7 @@ public class ForgixMergeConfiguration {
     @Inject
     public ForgixMergeConfiguration(ObjectFactory objects) {
         this.silence = objects.property(Boolean.class);
+        this.autoRun = objects.property(Boolean.class);
         this.archiveBaseName = objects.property(String.class);
         this.archiveClassifier = objects.property(String.class);
         this.archiveVersion = objects.property(String.class);
@@ -36,6 +38,10 @@ public class ForgixMergeConfiguration {
 
     public Property<Boolean> getSilence() {
         return silence.convention(false);
+    }
+
+    public Property<Boolean> getAutoRun() {
+        return autoRun.convention(false);
     }
 
     public Property<String> getArchiveBaseName() {
