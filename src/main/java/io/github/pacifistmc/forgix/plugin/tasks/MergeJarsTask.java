@@ -23,17 +23,19 @@ public class MergeJarsTask extends Jar {
     private static final AtomicReference<byte[]> hash = new AtomicReference<>();
     private static final AtomicBoolean running = new AtomicBoolean();
 
-    private final Map<File, String> jarFileProjectMap = new HashMap<>() {
-        {
-            // Setup default configuration
-            if (settings.getMergeConfigurations().isEmpty()) settings.setupDefaultConfiguration();
-
-            // Get the best output file for each project (the jar file we want to merge)
-            settings.getMergeConfigurations().forEach((name, config) -> put(GradleProjectUtils.getBestOutputFile(config,rootProject.getAllprojects().stream().filter(p -> p.getName().equalsIgnoreCase(name)).findFirst().orElse(null)), name));
-        }
-    };
+    private final Map<File, String> jarFileProjectMap = new HashMap<>();
 
     public MergeJarsTask() {
+        // TODO: Do up-to-date check properly and look into config caching
+        if (settings.getMergeConfigurations().isEmpty()) settings.setupDefaultConfiguration(); // Setup default configuration
+        settings.getMergeConfigurations().forEach((name, config) ->  // Get the best output file for each project (the jar file we want to merge)
+                jarFileProjectMap.put(
+                        GradleProjectUtils.getBestOutputFile(config,
+                                rootProject.getAllprojects().stream().filter(p ->
+                                        p.getName().equalsIgnoreCase(name)).findFirst().orElse(null)
+                        ), name)
+        );
+
         getArchiveBaseName().convention(settings.getArchiveBaseName());
         getArchiveClassifier().convention(settings.getArchiveClassifier());
         getArchiveVersion().convention(settings.getArchiveVersion());
