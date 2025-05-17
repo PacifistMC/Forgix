@@ -2,97 +2,85 @@ package io.github.pacifistmc.forgix.plugin.tasks;
 
 import io.github.pacifistmc.forgix.Forgix;
 import io.github.pacifistmc.forgix.utils.GradleProjectUtils;
-import io.github.pacifistmc.forgix.utils.JAR;
+import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.internal.file.copy.CopyAction;
-import org.gradle.api.tasks.Internal;
-import org.gradle.api.tasks.WorkResults;
+import org.gradle.api.provider.MapProperty;
+import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.*;
 import org.gradle.jvm.tasks.Jar;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
+import javax.inject.Inject;
 
 import static io.github.pacifistmc.forgix.plugin.ForgixGradlePlugin.rootProject;
 import static io.github.pacifistmc.forgix.plugin.ForgixGradlePlugin.settings;
 
-public class MergeJarsTask extends Jar {
-    private final File mergedJar;
-    private static final AtomicReference<byte[]> hash = new AtomicReference<>();
-    private static final AtomicBoolean running = new AtomicBoolean();
+@CacheableTask
+public abstract class MergeJarsTask extends Jar {
+    @Internal
+    public abstract MapProperty<File, String> getJarFileProjectMap();
 
-    private final Map<File, String> jarFileProjectMap = new HashMap<>();
+    @InputFiles
+    @PathSensitive(PathSensitivity.NONE)
+    public abstract ConfigurableFileCollection getInputJarFiles();
 
+    @Input
+    public abstract Property<Boolean> getSilence();
+
+    @Inject
     public MergeJarsTask() {
-        // TODO: Do up-to-date check properly and look into config caching
-        if (settings.getMergeConfigurations().isEmpty()) settings.setupDefaultConfiguration(); // Setup default configuration
-        settings.getMergeConfigurations().forEach((name, config) ->  // Get the best output file for each project (the jar file we want to merge)
-                jarFileProjectMap.put(
-                        GradleProjectUtils.getBestOutputFile(config,
-                                rootProject.getAllprojects().stream().filter(p ->
-                                        p.getName().equalsIgnoreCase(name)).findFirst().orElse(null)
-                        ), name)
-        );
+        // Configure archive properties
+        archiveBaseName.set(settings.archiveBaseName);
+        archiveClassifier.set(settings.archiveClassifier);
+        archiveVersion.set(settings.archiveVersion);
+        destinationDirectory.set(settings.destinationDirectory);
 
-        getArchiveBaseName().convention(settings.getArchiveBaseName());
-        getArchiveClassifier().convention(settings.getArchiveClassifier());
-        getArchiveVersion().convention(settings.getArchiveVersion());
-        getDestinationDirectory().convention(settings.getDestinationDirectory());
-        var destDir = getDestinationDirectory().get().asFile;
+        // Initialize properties
+        jarFileProjectMap.set(project.provider(this::createJarFileProjectMap));
+        silence.set(settings.silence);
 
-        // Create the destination directory if it doesn't exist
-        destDir.mkdirs();
-
-//        // Don't allow custom input files
-//        getInputs().files();
-
-        // Set output file
-        mergedJar = new File(destDir, getArchiveFileName().get());
-        getOutputs().files(mergedJar);
-
-        // Up-to-date check
-        getOutputs().upToDateWhen(_ -> isUpToDate());
-
-        // Set input files
-        jarFileProjectMap.keySet().forEach(file -> getInputs().file(file));
+        // Setup the input files collection to track the keys from the map
+        jarFileProjectMap.finalizeValueOnRead();
+        inputJarFiles.setFrom(project.provider(() -> jarFileProjectMap.get().keySet()));
     }
 
-    void run() {
-        if (running.get()) return;
-        if (mergedJar.exists()) mergedJar.deleteQuietly();
-        if (settings.getMergeConfigurations().size() < 2) {
+    private Map<File, String> createJarFileProjectMap() {
+        // Setup default configuration if needed
+        if (settings.mergeConfigurations.isEmpty()) settings.setupDefaultConfiguration();
+
+        // Create the jar file to project map
+        Map<File, String> jarMap = new HashMap<>();
+        settings.mergeConfigurations.forEach((name, config) -> {
+            File outputFile = GradleProjectUtils.getBestOutputFile(config,
+                    rootProject.allprojects.stream().filter(p ->
+                            p.name.equalsIgnoreCase(name)).findFirst().orElse(null));
+            if (outputFile != null) jarMap.put(outputFile, name);
+        });
+        return jarMap;
+    }
+
+    @TaskAction
+    void mergeJars() {
+        Map<File, String> jarMap = jarFileProjectMap.get();
+        File outputFile = archiveFile.get().asFile;
+        outputFile.ensureCreatable();
+
+        // Validate input
+        if (jarMap.size() < 2) {
             throw new IllegalStateException("""
                     At least 2 projects must be detected in order to merge them.
                     Please configure the forgix extension in your build.gradle file to specify the projects you want to merge.
                     See https://github.com/PacifistMC/Forgix for more information.""");
         }
 
-        running.set(true);
-        try {
-            Forgix.mergeLoaders(jarFileProjectMap, mergedJar, settings.getSilence().get());
-            hash.set(JAR.computeHash(jarFileProjectMap.keySet()));
-        } finally {
-            running.set(false);
-        }
-    }
-
-    @Internal
-    boolean isUpToDate() {
-        if (!mergedJar.exists()) return false;
-        if (hash.get() == null) return false;
-        return Arrays.equals(hash.get(), JAR.computeHash(jarFileProjectMap.keySet()));
+        // Perform the merge operation
+        Forgix.mergeLoaders(jarMap, outputFile, silence.get());
     }
 
     @Override
     protected CopyAction createCopyAction() {
-        return copyActionProcessingStream -> {
-            copyActionProcessingStream.process(_ -> {
-                if (isUpToDate()) return;
-                run();
-            });
-            return WorkResults.didWork(true);
-        };
+        return _ -> WorkResults.didWork(true);
     }
 }

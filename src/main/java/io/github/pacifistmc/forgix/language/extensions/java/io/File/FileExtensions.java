@@ -23,4 +23,9 @@ public class FileExtensions {
         self.deleteOnExit();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> FileExtensions.deleteQuietly(self))); // No, this cannot be replaced with a lambda reference
     }
+
+    public static void ensureCreatable(@This File file) {
+        file.getParentFile().mkdirs(); // Create the destination directory if it doesn't exist
+        if (file.exists()) file.delete(); // Remove the existing output file
+    }
 }
