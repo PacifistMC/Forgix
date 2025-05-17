@@ -32,6 +32,7 @@ public class ForgixGradlePlugin implements Plugin<Project> {
                     proj.tasks.matching(task ->
                             task.outputs.files.files.stream().anyMatch(file -> file.name.endsWith(".jar"))
                     ).forEach(task -> {
+                        if (task instanceof MergeJarsTask || task instanceof MergeVersionsTask) return;
                         gradle.rootProject.tasks.getByName("mergeJars").mustRunAfter(task);
                         gradle.rootProject.tasks.getByName("mergeVersions").mustRunAfter(task);
                     })
