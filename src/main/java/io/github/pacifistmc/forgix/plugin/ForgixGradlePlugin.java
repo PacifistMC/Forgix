@@ -27,15 +27,19 @@ public class ForgixGradlePlugin implements Plugin<Project> {
 
         if (!rootProject.plugins.hasPlugin("java")) rootProject.plugins.apply("java"); // Apply Java plugin if not already applied, we need this for auto-run
         rootProject.gradle.projectsEvaluated(gradle -> {
-            if (!settings.autoRun.get()) return;
-            gradle.rootProject.tasks.getByName("jar").finalizedBy(gradle.rootProject.tasks.getByName("mergeJars")); // Only run mergeJars if the root project is being built (the user ran `gradle build` or `gradle assemble`)
-            gradle.rootProject.subprojects.forEach(subproject -> // Make mergeJars be able to use inputs from any task that outputs a jar and setup ordering so it runs after them
-                subproject.tasks.matching(task ->
-                        task.outputs.files.files.stream().anyMatch(file -> file.name.endsWith(".jar"))
-                ).forEach(task ->
-                        gradle.rootProject.tasks.getByName("mergeJars").mustRunAfter(task)
-                )
+            // Make our tasks be able to use inputs from any task that outputs a jar and setup ordering so it runs after them
+            gradle.allprojects(proj ->
+                    proj.tasks.matching(task ->
+                            task.outputs.files.files.stream().anyMatch(file -> file.name.endsWith(".jar"))
+                    ).forEach(task -> {
+                        gradle.rootProject.tasks.getByName("mergeJars").mustRunAfter(task);
+                        gradle.rootProject.tasks.getByName("mergeVersions").mustRunAfter(task);
+                    })
             );
+
+            // If autoRun is enabled, then only run mergeJars if the root project is being built (the user ran `gradle build` or `gradle assemble`)
+            if (!settings.autoRun.get()) return;
+            gradle.rootProject.tasks.getByName("jar").finalizedBy(gradle.rootProject.tasks.getByName("mergeJars"));
         });
     }
 }
