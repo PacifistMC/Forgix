@@ -34,7 +34,7 @@ repositories {
 }
 
 manifold {
-    manifoldVersion = '2025.1.11'
+    manifoldVersion = '2025.1.14'
 }
 
 dependencies {
