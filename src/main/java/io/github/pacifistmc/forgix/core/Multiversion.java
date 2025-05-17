@@ -265,6 +265,10 @@ public class Multiversion {
 
         // Process all jars in parallel
         jarPaths.parallelStream().forEach(jarPath -> {
+            if (!Files.exists(jarPath)) {
+                "${jarPath} does not exist! Skipping...".err();
+                return;
+            }
             try (var zipFile = new ZipFile(jarPath.toFile())) {
                 zipFile.getFileHeaders().parallelStream()
                     .filter(header -> !header.isDirectory())
