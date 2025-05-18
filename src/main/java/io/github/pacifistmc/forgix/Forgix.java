@@ -5,7 +5,6 @@ import io.github.pacifistmc.forgix.core.RelocationConfig;
 import io.github.pacifistmc.forgix.core.Relocator;
 import io.github.pacifistmc.forgix.utils.JAR;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.*;
@@ -37,25 +36,22 @@ public class Forgix {
                         file -> "META-INF/forgix/${file.getName()}"
                 ));
 
-        try(ByteArrayOutputStream baos = JAR.combineJars(jarsAndLoadersMap.keySet(), extraManifestAttributes:new HashMap<>() {
-            {
-                put(MANIFEST_VERSION_KEY, VERSION);
-                put(MANIFEST_MAPPINGS_KEY, String.join(";", tinyFiles.values()));
-            }
-        })) {
-            try (var fos = new FileOutputStream(outputFile)) {
-                baos.writeTo(fos);
-            }
+        try (var baos = JAR.combineJars(jarsAndLoadersMap.keySet(),
+                extraManifestAttributes:new HashMap<>() {{
+                    put(MANIFEST_VERSION_KEY, VERSION);
+                    put(MANIFEST_MAPPINGS_KEY, String.join(";", tinyFiles.values()));
+                }});
+             var fos = new FileOutputStream(outputFile)
+        ) {
+            baos.writeTo(fos);
         }
         JAR.addFiles(outputFile, tinyFiles);
         JAR.setPerms(outputFile);
     }
 
     public static void mergeVersions(Collection<File> jarFiles, File outputFile) {
-        try (var baos = Multiversion.mergeVersions(jarFiles)) {
-            try (var fos = new FileOutputStream(outputFile)) {
-                baos.writeTo(fos);
-            }
+        try (var baos = Multiversion.mergeVersions(jarFiles); var fos = new FileOutputStream(outputFile)) {
+            baos.writeTo(fos);
         }
         JAR.setPerms(outputFile);
     }

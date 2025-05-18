@@ -1,6 +1,5 @@
 package io.github.pacifistmc.forgix.plugin.configurations;
 
-import io.github.pacifistmc.forgix.plugin.ForgixGradlePlugin;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.file.Directory;
@@ -14,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
-public class ForgixMergeConfiguration {
+public class ForgixConfiguration {
     private final Property<Boolean> silence;
     private final Property<Boolean> autoRun;
     private final Property<String> archiveBaseName;
@@ -24,10 +23,12 @@ public class ForgixMergeConfiguration {
     private final Map<String, MergeLoaderConfiguration> mergeConfigurations = new HashMap<>();
     public MultiversionConfiguration multiversionConfiguration;
 
-    private static final Map<String, Consumer<ForgixMergeConfiguration>> LOADER_DEFAULT_METHOD_MAP = new HashMap<>();
+    private final Map<String, Consumer<ForgixConfiguration>> LOADER_DEFAULT_METHOD_MAP = new HashMap<>();
+    private final Project rootProject;
 
     @Inject
-    public ForgixMergeConfiguration(ObjectFactory objects) {
+    public ForgixConfiguration(ObjectFactory objects, Project project) {
+        this.rootProject = project.rootProject;
         this.silence = objects.property(Boolean.class);
         this.autoRun = objects.property(Boolean.class);
         this.archiveBaseName = objects.property(String.class);
@@ -45,7 +46,7 @@ public class ForgixMergeConfiguration {
     }
 
     public Property<String> getArchiveBaseName() {
-        return archiveBaseName.convention(ForgixGradlePlugin.rootProject.getName());
+        return archiveBaseName.convention(rootProject.getName());
     }
 
     public Property<String> getArchiveClassifier() {
@@ -53,11 +54,11 @@ public class ForgixMergeConfiguration {
     }
 
     public Property<String> getArchiveVersion() {
-        return archiveVersion.convention(ForgixGradlePlugin.rootProject.getVersion().toString());
+        return archiveVersion.convention(rootProject.getVersion().toString());
     }
 
     public Property<Directory> getDestinationDirectory() {
-        return destinationDirectory.convention(ForgixGradlePlugin.rootProject.getLayout().getBuildDirectory().dir("forgix"));
+        return destinationDirectory.convention(rootProject.getLayout().getBuildDirectory().dir("forgix"));
     }
 
     // Fabric
@@ -68,9 +69,6 @@ public class ForgixMergeConfiguration {
     public void fabric() {
         fabric(_ -> {});
     }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("fabric", _ -> ForgixGradlePlugin.settings.fabric());
-    }
 
     // Forge
 
@@ -79,9 +77,6 @@ public class ForgixMergeConfiguration {
     }
     public void forge() {
         forge(_ -> {});
-    }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("forge", _ -> ForgixGradlePlugin.settings.forge());
     }
 
     // Quilt
@@ -92,9 +87,6 @@ public class ForgixMergeConfiguration {
     public void quilt() {
         quilt(_ -> {});
     }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("quilt", _ -> ForgixGradlePlugin.settings.quilt());
-    }
 
     // NeoForge
 
@@ -103,9 +95,6 @@ public class ForgixMergeConfiguration {
     }
     public void neoforge() {
         neoforge(_ -> {});
-    }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("neoforge", _ -> ForgixGradlePlugin.settings.neoforge());
     }
 
     // LiteLoader
@@ -116,9 +105,6 @@ public class ForgixMergeConfiguration {
     public void liteloader() {
         liteloader(_ -> {});
     }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("liteloader", _ -> ForgixGradlePlugin.settings.liteloader());
-    }
 
     // Rift
 
@@ -127,9 +113,6 @@ public class ForgixMergeConfiguration {
     }
     public void rift() {
         rift(_ -> {});
-    }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("rift", _ -> ForgixGradlePlugin.settings.rift());
     }
 
     // General plugin project
@@ -140,9 +123,6 @@ public class ForgixMergeConfiguration {
     public void plugin() {
         plugin(_ -> {});
     }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("plugin", _ -> ForgixGradlePlugin.settings.plugin());
-    }
 
     // Bukkit
 
@@ -151,9 +131,6 @@ public class ForgixMergeConfiguration {
     }
     public void bukkit() {
         bukkit(_ -> {});
-    }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("bukkit", _ -> ForgixGradlePlugin.settings.bukkit());
     }
 
     // Spigot
@@ -164,9 +141,6 @@ public class ForgixMergeConfiguration {
     public void spigot() {
         spigot(_ -> {});
     }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("spigot", _ -> ForgixGradlePlugin.settings.spigot());
-    }
 
     // Paper
 
@@ -175,9 +149,6 @@ public class ForgixMergeConfiguration {
     }
     public void paper() {
         paper(_ -> {});
-    }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("papermc", _ -> ForgixGradlePlugin.settings.paper());
     }
 
     // Sponge
@@ -188,9 +159,6 @@ public class ForgixMergeConfiguration {
     public void sponge() {
         sponge(_ -> {});
     }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("sponge", _ -> ForgixGradlePlugin.settings.sponge());
-    }
 
     // Foila
 
@@ -199,9 +167,6 @@ public class ForgixMergeConfiguration {
     }
     public void foila() {
         foila(_ -> {});
-    }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("foila", _ -> ForgixGradlePlugin.settings.foila());
     }
 
     // BungeeCord
@@ -212,9 +177,6 @@ public class ForgixMergeConfiguration {
     public void bungeecoord() {
         bungeecoord(_ -> {});
     }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("bungeecord", _ -> ForgixGradlePlugin.settings.bungeecoord());
-    }
 
     // Waterfall
 
@@ -223,9 +185,6 @@ public class ForgixMergeConfiguration {
     }
     public void waterfall() {
         waterfall(_ -> {});
-    }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("waterfall", _ -> ForgixGradlePlugin.settings.waterfall());
     }
 
     // Velocity
@@ -236,15 +195,14 @@ public class ForgixMergeConfiguration {
     public void velocity() {
         velocity(_ -> {});
     }
-    static {
-        LOADER_DEFAULT_METHOD_MAP.put("velocity", _ -> ForgixGradlePlugin.settings.velocity());
-    }
+
+    // When adding a new loader remember to update the LOADER_DEFAULT_METHOD_MAP
 
     public void merge(String name, Action<? super MergeLoaderConfiguration> action) {
         Action<? super Project> afterEvaluateAction = _ -> {
             var config = new MergeLoaderConfiguration(getObjects());
 
-            if (ForgixGradlePlugin.rootProject.getAllprojects().stream().noneMatch(project -> project.getName().equalsIgnoreCase(name))
+            if (rootProject.getAllprojects().stream().noneMatch(project -> project.getName().equalsIgnoreCase(name))
                     && (!config.getInputJar().isPresent() || !config.getInputJar().getAsFile().isPresent() || !config.getInputJar().getAsFile().get().exists())) {
                 throw new IllegalArgumentException("""
                         Project with name ${name} does not exist and unable to detect input jar.
@@ -267,11 +225,11 @@ public class ForgixMergeConfiguration {
         };
 
         // If the project has already been evaluated, execute the action immediately
-        if (ForgixGradlePlugin.rootProject.getState().getExecuted()) {
-            afterEvaluateAction.execute(ForgixGradlePlugin.rootProject);
+        if (rootProject.getState().getExecuted()) {
+            afterEvaluateAction.execute(rootProject);
             return;
         }
-        ForgixGradlePlugin.rootProject.afterEvaluate(afterEvaluateAction);
+        rootProject.afterEvaluate(afterEvaluateAction);
     }
     public void merge(String name) {
         merge(name, _ -> {});
@@ -282,8 +240,23 @@ public class ForgixMergeConfiguration {
     }
 
     public void setupDefaultConfiguration() {
+        LOADER_DEFAULT_METHOD_MAP.put("fabric", _ -> fabric());
+        LOADER_DEFAULT_METHOD_MAP.put("forge", _ -> forge());
+        LOADER_DEFAULT_METHOD_MAP.put("quilt", _ -> quilt());
+        LOADER_DEFAULT_METHOD_MAP.put("neoforge", _ -> neoforge());
+        LOADER_DEFAULT_METHOD_MAP.put("liteloader", _ -> liteloader());
+        LOADER_DEFAULT_METHOD_MAP.put("rift", _ -> rift());
+        LOADER_DEFAULT_METHOD_MAP.put("plugin", _ -> plugin());
+        LOADER_DEFAULT_METHOD_MAP.put("bukkit", _ -> bukkit());
+        LOADER_DEFAULT_METHOD_MAP.put("spigot", _ -> spigot());
+        LOADER_DEFAULT_METHOD_MAP.put("papermc", _ -> paper());
+        LOADER_DEFAULT_METHOD_MAP.put("sponge", _ -> sponge());
+        LOADER_DEFAULT_METHOD_MAP.put("foila", _ -> foila());
+        LOADER_DEFAULT_METHOD_MAP.put("bungeecord", _ -> bungeecoord());
+        LOADER_DEFAULT_METHOD_MAP.put("waterfall", _ -> waterfall());
+        LOADER_DEFAULT_METHOD_MAP.put("velocity", _ -> velocity());
         LOADER_DEFAULT_METHOD_MAP.entrySet().stream()
-                .filter(entry -> ForgixGradlePlugin.rootProject.getAllprojects().stream().anyMatch(project -> project.getName().equalsIgnoreCase(entry.key)))
+                .filter(entry -> rootProject.getAllprojects().stream().anyMatch(project -> project.getName().equalsIgnoreCase(entry.key)))
                 .map(Map.Entry::getValue)
                 .forEach(consumer -> consumer.accept(this));
     }
@@ -306,11 +279,11 @@ public class ForgixMergeConfiguration {
 
     public void multiversion(Action<? super MultiversionConfiguration> action) {
         Action<? super Project> afterEvaluateAction = _ -> action.execute(multiversionConfiguration = new MultiversionConfiguration(getObjects()));
-        if (ForgixGradlePlugin.rootProject.getState().getExecuted()) {
-            afterEvaluateAction.execute(ForgixGradlePlugin.rootProject);
+        if (rootProject.getState().getExecuted()) {
+            afterEvaluateAction.execute(rootProject);
             return;
         }
-        ForgixGradlePlugin.rootProject.afterEvaluate(afterEvaluateAction);
+        rootProject.afterEvaluate(afterEvaluateAction);
     }
 
     public static class MultiversionConfiguration {

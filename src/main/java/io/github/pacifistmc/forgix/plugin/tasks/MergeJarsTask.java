@@ -1,6 +1,7 @@
 package io.github.pacifistmc.forgix.plugin.tasks;
 
 import io.github.pacifistmc.forgix.Forgix;
+import io.github.pacifistmc.forgix.plugin.configurations.ForgixConfiguration;
 import io.github.pacifistmc.forgix.utils.GradleProjectUtils;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.internal.file.copy.CopyAction;
@@ -14,9 +15,6 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.inject.Inject;
 
-import static io.github.pacifistmc.forgix.plugin.ForgixGradlePlugin.rootProject;
-import static io.github.pacifistmc.forgix.plugin.ForgixGradlePlugin.settings;
-
 @CacheableTask
 public abstract class MergeJarsTask extends Jar {
     @Internal
@@ -28,6 +26,8 @@ public abstract class MergeJarsTask extends Jar {
 
     @Input
     public abstract Property<Boolean> getSilence();
+
+    private final ForgixConfiguration settings = this.project.rootProject.extensions.getByType(ForgixConfiguration.class);
 
     @Inject
     public MergeJarsTask() {
@@ -42,7 +42,6 @@ public abstract class MergeJarsTask extends Jar {
         silence.set(settings.silence);
 
         // Setup the input files collection to track the keys from the map
-        jarFileProjectMap.finalizeValueOnRead();
         inputJarFiles.setFrom(project.provider(() -> jarFileProjectMap.get().keySet()));
     }
 
@@ -54,14 +53,13 @@ public abstract class MergeJarsTask extends Jar {
         Map<File, String> jarMap = new HashMap<>();
         settings.mergeConfigurations.forEach((name, config) -> {
             File outputFile = GradleProjectUtils.getBestOutputFile(config,
-                    rootProject.allprojects.stream().filter(p ->
+                    this.project.rootProject.allprojects.stream().filter(p ->
                             p.name.equalsIgnoreCase(name)).findFirst().orElse(null));
             if (outputFile != null) jarMap.put(outputFile, name);
         });
         return jarMap;
     }
 
-    @TaskAction
     void mergeJars() {
         Map<File, String> jarMap = jarFileProjectMap.get();
         File outputFile = archiveFile.get().asFile;
@@ -81,6 +79,9 @@ public abstract class MergeJarsTask extends Jar {
 
     @Override
     protected CopyAction createCopyAction() {
-        return _ -> WorkResults.didWork(true);
+        return _ -> {
+            mergeJars();
+            return WorkResults.didWork(true);
+        };
     }
 }

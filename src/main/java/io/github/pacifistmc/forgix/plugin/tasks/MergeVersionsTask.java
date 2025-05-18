@@ -1,6 +1,7 @@
 package io.github.pacifistmc.forgix.plugin.tasks;
 
 import io.github.pacifistmc.forgix.Forgix;
+import io.github.pacifistmc.forgix.plugin.configurations.ForgixConfiguration;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.internal.file.copy.CopyAction;
 import org.gradle.api.tasks.*;
@@ -9,13 +10,13 @@ import org.gradle.jvm.tasks.Jar;
 import java.io.File;
 import javax.inject.Inject;
 
-import static io.github.pacifistmc.forgix.plugin.ForgixGradlePlugin.settings;
-
 @CacheableTask
 public abstract class MergeVersionsTask extends Jar {
     @InputFiles
     @PathSensitive(PathSensitivity.NONE)
     public abstract ConfigurableFileCollection getInputJarFiles();
+
+    private final ForgixConfiguration settings = this.project.rootProject.extensions.getByType(ForgixConfiguration.class);
 
     @Inject
     public MergeVersionsTask() {
@@ -29,7 +30,6 @@ public abstract class MergeVersionsTask extends Jar {
         if (settings.multiversionConfiguration != null) inputJarFiles.setFrom(settings.multiversionConfiguration.inputJars);
     }
 
-    @TaskAction
     void mergeVersions() {
         // Get input and output files
         File outputFile = archiveFile.get().getAsFile();
@@ -49,6 +49,9 @@ public abstract class MergeVersionsTask extends Jar {
 
     @Override
     protected CopyAction createCopyAction() {
-        return _ -> WorkResults.didWork(true);
+        return _ -> {
+            mergeVersions();
+            return WorkResults.didWork(true);
+        };
     }
 }

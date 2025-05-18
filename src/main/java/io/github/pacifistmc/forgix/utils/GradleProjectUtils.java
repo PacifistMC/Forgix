@@ -1,12 +1,12 @@
 package io.github.pacifistmc.forgix.utils;
 
-import io.github.pacifistmc.forgix.plugin.configurations.ForgixMergeConfiguration;
+import io.github.pacifistmc.forgix.plugin.configurations.ForgixConfiguration;
 import org.gradle.api.Project;
 
 import java.io.File;
 
 public class GradleProjectUtils {
-    public static File getBestOutputFile(ForgixMergeConfiguration.MergeLoaderConfiguration configuration, Project project) {
+    public static File getBestOutputFile(ForgixConfiguration.MergeLoaderConfiguration configuration, Project project) {
         if (project == null) return null;
         if (configuration.getInputJar().isPresent()) return configuration.getInputJar().get().getAsFile();
         var buildLibsFolder = project.getLayout().getBuildDirectory().dir("libs").get().getAsFile();
