@@ -25,19 +25,17 @@ import java.util.zip.ZipOutputStream;
 public class JAR {
     // Constants
     private static final int BUFFER_SIZE = 64 * 1024; // 64KB buffer
-    public static final Set<PosixFilePermission> perms = new HashSet<>() {
-        {
-            add(PosixFilePermission.OTHERS_EXECUTE);
-            add(PosixFilePermission.OTHERS_WRITE);
-            add(PosixFilePermission.OTHERS_READ);
-            add(PosixFilePermission.OWNER_EXECUTE);
-            add(PosixFilePermission.OWNER_WRITE);
-            add(PosixFilePermission.OWNER_READ);
-            add(PosixFilePermission.GROUP_EXECUTE);
-            add(PosixFilePermission.GROUP_WRITE);
-            add(PosixFilePermission.GROUP_READ);
-        }
-    };
+    public static final Set<PosixFilePermission> perms = Set.of(
+        PosixFilePermission.OTHERS_EXECUTE,
+        PosixFilePermission.OTHERS_WRITE,
+        PosixFilePermission.OTHERS_READ,
+        PosixFilePermission.OWNER_EXECUTE,
+        PosixFilePermission.OWNER_WRITE,
+        PosixFilePermission.OWNER_READ,
+        PosixFilePermission.GROUP_EXECUTE,
+        PosixFilePermission.GROUP_WRITE,
+        PosixFilePermission.GROUP_READ
+    );
 
     /**
      * Merges the manifests of multiple JAR files.
@@ -89,15 +87,10 @@ public class JAR {
                 }).collect(Collectors.toMap(
                         Map.Entry::getKey,
                         Map.Entry::getValue,
-                        (a, b) -> {
-                            // Only add unique lines
-                            return String.join("\n", new LinkedHashSet<>() {
-                                {
-                                    addAll(Arrays.asList(a.split("\n")));
-                                    addAll(Arrays.asList(b.split("\n")));
-                                }
-                            });
-                        }
+                        (a, b) -> Stream.concat(
+                            Arrays.stream(a.split("\n")),
+                            Arrays.stream(b.split("\n"))
+                        ).distinct().collect(Collectors.joining("\n"))
                 ));
     }
 
@@ -230,13 +223,12 @@ public class JAR {
         jarFile.close(); // Close the JAR file so we can write to it
         try (ZipFile zipFile = new ZipFile(jarFile.getName())) {
             // Add all writers to the ZIP
-            writers.forEach((is, entry) ->
-                zipFile.addStream(is,
-                        new ZipParameters() {{
-                            setFileNameInZip(entry.getName());
-                            setOverrideExistingFilesInZip(true);
-                        }}
-                ));
+            writers.forEach((is, entry) -> {
+                var params = new ZipParameters();
+                params.setFileNameInZip(entry.getName());
+                params.setOverrideExistingFilesInZip(true);
+                zipFile.addStream(is, params);
+            });
         }
         return !writers.isEmpty();
     }
@@ -248,10 +240,12 @@ public class JAR {
      */
     public static void addFiles(File jarFile, Map<File, String> filesAndNamesMap) {
         try (ZipFile zipFile = new ZipFile(jarFile)) {
-            filesAndNamesMap.forEach((file, path) -> zipFile.addFile(file, new ZipParameters() {{
-                setFileNameInZip(path);
-                setOverrideExistingFilesInZip(true);
-            }}));
+            filesAndNamesMap.forEach((file, path) -> {
+                var params = new ZipParameters();
+                params.setFileNameInZip(path);
+                params.setOverrideExistingFilesInZip(true);
+                zipFile.addFile(file, params);
+            });
         }
     }
 
