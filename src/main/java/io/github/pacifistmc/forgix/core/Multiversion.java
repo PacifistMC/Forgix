@@ -62,25 +62,11 @@ public class Multiversion {
      *                               Note: The version key is not semver! It is using Forge's version range format.
      * @return The merged JAR file as a ByteArrayOutputStream
      */
-    public static ByteArrayOutputStream mergeVersions(Map<String, Path> versionsAndFilePathMap, String fabricModId) {
+    public static ByteArrayOutputStream mergeVersions(Map<String, Path> versionsAndFilePathMap, LoaderInformation loader) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (var zos = new ZipOutputStream(baos)) {
             var versionsJson = new ForgixVersionJson();
             zos.setLevel(9); // Maximum compression
-
-            // Add contents from the multiversion jar
-            try (var zipFile = new ZipFile(multiversionJar)) {
-                zipFile.getFileHeaders().forEach(header -> {
-                    var name = header.getFileName();
-                    zos.putNextEntry(new ZipEntry(name));
-                    zos.write(name.equals("pack.mcmeta") ?
-                            IOUtils.toString(zipFile.getInputStream(header), StandardCharsets.UTF_8)
-                                    .replace("Forgix-Multiversion-Mod", uuid) // Replace the mod name in pack.mcmeta with a UUID to avoid conflicts
-                                    .getBytes(StandardCharsets.UTF_8)
-                            : zipFile.getInputStream(header).readAllBytes());
-                    zos.closeEntry();
-                });
-            }
 
             // First, identify common files across all jars
             Map<String, byte[]> commonFiles = findCommonFiles(versionsAndFilePathMap.values());
@@ -100,7 +86,7 @@ public class Multiversion {
                 });
 
                 // Create a dummy fabric.mod.json for the shared jar
-                if (fabricModId != null) {
+                if (loader.fabricModId != null) {
                     storedZos.putNextEntry(new ZipEntry("fabric.mod.json"));
                     storedZos.write(gson.toJson(new FabricModJson(generateMultiversionUUID())).getBytes());
                     storedZos.closeEntry();
@@ -151,18 +137,34 @@ public class Multiversion {
                 zos.putNextEntry(new ZipEntry(pathInJar));
                 zos.write(storedJarBytes.toByteArray());
                 zos.closeEntry();
-                versionsJson.getVersions().put(version, pathInJar);
+                if (version.charAt(0) != 'f') versionsJson.getVersions().put(version, pathInJar); // Add the version if it's not a forgix uuid (we set the version to an uuid if it's a fabric-only mod)
             });
 
-            // Create the multiversion json file
-            zos.putNextEntry(new ZipEntry("META-INF/forgix/multiversion.json"));
-            zos.write(gson.toJson(versionsJson).getBytes());
-            zos.closeEntry();
+            if (loader.forge) {
+                // Add contents from the multiversion jar
+                try (var zipFile = new ZipFile(multiversionJar)) {
+                    zipFile.getFileHeaders().forEach(header -> {
+                        var name = header.getFileName();
+                        zos.putNextEntry(new ZipEntry(name));
+                        zos.write(name.equals("pack.mcmeta") ?
+                                IOUtils.toString(zipFile.getInputStream(header), StandardCharsets.UTF_8)
+                                        .replace("Forgix-Multiversion-Mod", uuid) // Replace the mod name in pack.mcmeta with a UUID to avoid conflicts
+                                        .getBytes(StandardCharsets.UTF_8)
+                                : zipFile.getInputStream(header).readAllBytes());
+                        zos.closeEntry();
+                    });
+                }
+
+                // Create the multiversion json file
+                zos.putNextEntry(new ZipEntry("META-INF/forgix/multiversion.json"));
+                zos.write(gson.toJson(versionsJson).getBytes());
+                zos.closeEntry();
+            }
 
             // Create the fabric mod json file
-            if (fabricModId != null) {
+            if (loader.fabricModId != null) {
                 zos.putNextEntry(new ZipEntry("fabric.mod.json"));
-                zos.write(gson.toJson(new FabricModJson(versionsJson.versions.values(), sharedJarPath, fabricModId)).getBytes());
+                zos.write(gson.toJson(new FabricModJson(versionsJson.versions.values(), sharedJarPath, loader.fabricModId)).getBytes());
                 zos.closeEntry();
             }
 
@@ -179,14 +181,15 @@ public class Multiversion {
      */
     public static ByteArrayOutputStream mergeVersions(Collection<File> jars) {
         Map<String, Path> versionsAndFilePathMap = new ConcurrentHashMap<>();
-        AtomicReference<String> fabricModId = new AtomicReference<>();
+        AtomicReference<LoaderInformation> loaderInformation = new AtomicReference<>();
         // Process each jar to extract version information
         jars.parallelStream().forEach(jar -> {
             try (var zipFile = new ZipFile(jar)) {
                 String mcVersionRange = "[0,)"; // Default to match all versions
 
                 // Try to read from mods.toml or neoforge.mods.toml
-                String tomlContent;
+                String tomlContent = null;
+                var fabricModsJson = zipFile.getFileHeader("fabric.mod.json");
                 var modToml = zipFile.getFileHeader("META-INF/mods.toml");
                 var neoForgeModToml = zipFile.getFileHeader("META-INF/neoforge.mods.toml");
 
@@ -194,37 +197,41 @@ public class Multiversion {
                     tomlContent = IOUtils.toString(zipFile.getInputStream(modToml), StandardCharsets.UTF_8);
                 } else if (neoForgeModToml != null) {
                     tomlContent = IOUtils.toString(zipFile.getInputStream(neoForgeModToml), StandardCharsets.UTF_8);
-                } else {
-                    throw new RuntimeException("No mods.toml or neoforge.mods.toml found in jar: " + jar.getName());
+                } else if (fabricModsJson == null) {
+                    throw new RuntimeException("No mods.toml or neoforge.mods.toml or fabric.mod.json found in jar: " + jar.getName());
                 }
 
-                var fabricModsJson = zipFile.getFileHeader("fabric.mod.json");
-                if (fabricModsJson != null && fabricModId.get() == null) {
-                    fabricModId.set(gson.fromJson(IOUtils.toString(zipFile.getInputStream(fabricModsJson), StandardCharsets.UTF_8), FabricModJson.class).id);
+                if (loaderInformation.get() == null) {
+                    loaderInformation.set(new LoaderInformation(tomlContent != null,
+                            fabricModsJson == null ? null : gson.fromJson(IOUtils.toString(zipFile.getInputStream(fabricModsJson), StandardCharsets.UTF_8), FabricModJson.class).id));
                 }
 
-                // Use Regex for now to extract the version range
-                // TODO: Use a proper TOML parser
-                var pattern = Pattern.compile(
-                        "\\[\\[dependencies\\.[^]]+]]\\s*" +  // Match dependency section
-                                "(?:.|\\s)*?" +                           // Any content in between
-                                "modId\\s*=\\s*\"minecraft\"\\s*" +       // Match modId = "minecraft"
-                                "(?:.|\\s)*?" +                           // Any content in between
-                                "versionRange\\s*=\\s*\"([^\"]*)\"",      // Capture the version range
-                        Pattern.DOTALL
-                );
-
-                var matcher = pattern.matcher(tomlContent);
-                if (matcher.find() && matcher.groupCount() >= 1) {
-                    mcVersionRange = matcher.group(1);
+                if (tomlContent != null) {
+                    // Use Regex for now to extract the version range
+                    // TODO: Use a proper TOML parser
+                    var matcher = Pattern.compile(
+                            "\\[\\[dependencies\\.[^]]+]]\\s*" +  // Match dependency section
+                                    "(?:.|\\s)*?" +                           // Any content in between
+                                    "modId\\s*=\\s*\"minecraft\"\\s*" +       // Match modId = "minecraft"
+                                    "(?:.|\\s)*?" +                           // Any content in between
+                                    "versionRange\\s*=\\s*\"([^\"]*)\"",      // Capture the version range
+                            Pattern.DOTALL
+                    ).matcher(tomlContent);
+                    if (matcher.find() && matcher.groupCount() >= 1) {
+                        mcVersionRange = matcher.group(1);
+                    }
+                } else { // Is a fabric-only mod, we don't need the mcVersionRange so just set a UUID
+                    mcVersionRange = generateMultiversionUUID();
                 }
 
                 // Add to our map with the extracted version range
                 versionsAndFilePathMap.put(mcVersionRange, jar.toPath());
             }
         });
-        return mergeVersions(versionsAndFilePathMap, fabricModId.get());
+        return mergeVersions(versionsAndFilePathMap, loaderInformation.get());
     }
+
+    public record LoaderInformation(boolean forge, String fabricModId) {}
 
     /**
      * Fabric has built in support for multiversion that works on all mc versions, so we use that
