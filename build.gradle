@@ -5,7 +5,6 @@ plugins {
     id 'com.gradle.plugin-publish' version '0.21.0'
     id 'com.gradleup.shadow' version '9.0.0-beta12'
     id 'xyz.wagyourtail.jvmdowngrader' version "1.3.0"
-    id 'systems.manifold.manifold-gradle-plugin' version '0.0.2-alpha'
 }
 
 group = 'io.github.pacifistmc.forgix'
@@ -16,7 +15,7 @@ version = (constantsSource =~ /\s+VERSION\s*=\s*"(.*)";/)[0][1]
 
 configurations {
     shade
-    compileOnly.extendsFrom shade
+    implementation.extendsFrom shade
     testImplementation.extendsFrom compileOnly
     testAnnotationProcessor.extendsFrom annotationProcessor
 }
@@ -33,23 +32,21 @@ repositories {
     }
 }
 
-manifold {
-    manifoldVersion = '2025.1.14'
-}
+String manifoldVersion = '2025.1.14'
 
 dependencies {
     implementation gradleApi()
 
-    shade "systems.manifold:manifold-rt:${manifold.manifoldVersion.get()}"
-    shade "systems.manifold:manifold-props-rt:${manifold.manifoldVersion.get()}"
-    shade "systems.manifold:manifold-params-rt:${manifold.manifoldVersion.get()}"
-    shade "systems.manifold:manifold-ext-rt:${manifold.manifoldVersion.get()}"
-    shade "systems.manifold:manifold-tuple-rt:${manifold.manifoldVersion.get()}"
-    annotationProcessor "systems.manifold:manifold-exceptions:${manifold.manifoldVersion.get()}"
-    annotationProcessor "systems.manifold:manifold-props:${manifold.manifoldVersion.get()}"
-    annotationProcessor "systems.manifold:manifold-params:${manifold.manifoldVersion.get()}"
-    annotationProcessor "systems.manifold:manifold-tuple:${manifold.manifoldVersion.get()}"
-    annotationProcessor "systems.manifold:manifold-strings:${manifold.manifoldVersion.get()}"
+    shade "systems.manifold:manifold-rt:${manifoldVersion}"
+    shade "systems.manifold:manifold-props-rt:${manifoldVersion}"
+    shade "systems.manifold:manifold-params-rt:${manifoldVersion}"
+    shade "systems.manifold:manifold-ext-rt:${manifoldVersion}"
+    shade "systems.manifold:manifold-tuple-rt:${manifoldVersion}"
+    annotationProcessor "systems.manifold:manifold-exceptions:${manifoldVersion}"
+    annotationProcessor "systems.manifold:manifold-props:${manifoldVersion}"
+    annotationProcessor "systems.manifold:manifold-params:${manifoldVersion}"
+    annotationProcessor "systems.manifold:manifold-tuple:${manifoldVersion}"
+    annotationProcessor "systems.manifold:manifold-strings:${manifoldVersion}"
 
     shade 'net.lingala.zip4j:zip4j:2.11.5'
     shade 'commons-io:commons-io:2.19.0'
@@ -126,6 +123,10 @@ tasks.withType(GenerateModuleMetadata).configureEach {
 
 tasks.withType(Sign).configureEach {
     enabled = false
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-Xplugin:Manifold']
 }
 
 test {
