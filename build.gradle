@@ -14,7 +14,7 @@ def constantsSource = rootProject.file("src/main/java/io/github/pacifistmc/forgi
 version = (constantsSource =~ /\s+VERSION\s*=\s*"(.*)";/)[0][1]
 
 configurations {
-    shade
+    shade.extendsFrom downgradeShade
     implementation.extendsFrom shade
     testImplementation.extendsFrom compileOnly
     testAnnotationProcessor.extendsFrom annotationProcessor
@@ -48,17 +48,17 @@ dependencies {
     annotationProcessor "systems.manifold:manifold-tuple:${manifoldVersion}"
     annotationProcessor "systems.manifold:manifold-strings:${manifoldVersion}"
 
-    shade 'net.lingala.zip4j:zip4j:2.11.5'
-    shade 'commons-io:commons-io:2.19.0'
-    shade 'com.google.code.gson:gson:2.13.1'
+    downgradeShade 'net.lingala.zip4j:zip4j:2.11.5'
+    downgradeShade 'commons-io:commons-io:2.19.0'
+    downgradeShade 'com.google.code.gson:gson:2.13.1'
 
-    shade('net.fabricmc:tiny-remapper:0.11.1') {
+    downgradeShade('net.fabricmc:tiny-remapper:0.11.1') {
         exclude group: 'org.ow2.asm'
     }
-    shade 'org.ow2.asm:asm:9.8'
-    shade 'org.ow2.asm:asm-commons:9.8'
-    shade 'org.ow2.asm:asm-tree:9.8'
-    shade 'org.ow2.asm:asm-util:9.8'
+    downgradeShade 'org.ow2.asm:asm:9.8'
+    downgradeShade 'org.ow2.asm:asm-commons:9.8'
+    downgradeShade 'org.ow2.asm:asm-tree:9.8'
+    downgradeShade 'org.ow2.asm:asm-util:9.8'
 
     shade fileTree(dir: 'src/main/resources/multiversion', include: '*.jar').filter { file ->
         !file.name.contains('-javadoc') && !file.name.contains('-sources')
@@ -68,10 +68,12 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
 
+downgradeJar.inputFile = tasks.jar.archiveFile
+jvmdg.dg(configurations.downgradeShade)
+
 shadowJar {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    configurations = [project.configurations.getByName("shade")]
-    archiveClassifier.set("shadow")
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    configurations = [project.configurations.shade]
 
     relocate "net.fabricmc", "pacifistmc.libraries.net.fabricmc"
     relocate "org.objectweb.asm", "pacifistmc.libraries.org.objectweb.asm"
@@ -80,13 +82,10 @@ shadowJar {
     relocate "com.google", "pacifistmc.libraries.com.google"
 
     exclude 'META-INF/services/**'
-}
 
-downgradeJar {
-    inputFile = tasks.shadowJar.archiveFile
-}
-
-shadeDowngradedApi {
+    // Make shadowJar use shadeDowngradedApi
+    dependsOn tasks.shadeDowngradedApi
+    from(zipTree(tasks.named('shadeDowngradedApi').flatMap { it.archiveFile }))
     archiveClassifier.set(null)
 }
 
@@ -126,13 +125,11 @@ tasks.withType(Sign).configureEach {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.compilerArgs += ['-Xplugin:Manifold']
+    options.compilerArgs += ['-Xplugin:Manifold', '--add-exports=java.base/jdk.internal.access=ALL-UNNAMED']
 }
 
-test {
-    useJUnitPlatform()
-}
-jar.finalizedBy(shadeDowngradedApi)
+test.useJUnitPlatform()
+jar.finalizedBy(shadowJar)
 javadoc.enabled(false) // Doesn't work well with Manifold
 
 
@@ -140,11 +137,11 @@ javadoc.enabled(false) // Doesn't work well with Manifold
 tasks.register('buildMultiversionMod', Exec) {
     description = 'Builds the Forgix-Multiversion-Mod and copies the merged jar to resources'
     group = 'forgix'
-    
+
     // Check if the multiversion jar already exists
     def resourcesDir = file('src/main/resources/multiversion')
     def multiversionJar = new File(resourcesDir, 'forgix-multiversion.jar')
-    
+
     // Skip the task if the jar already exists
     onlyIf {
         !multiversionJar.exists()
