@@ -148,17 +148,15 @@ public class Relocator {
 //                }
                 if (originalPath.endsWith("META-INF/MANIFEST.MF")) return; // Skip manifest
                 if (!originalPath.endsWith(".class") && !originalPath.startsWith("META-INF/services/")) { // Is a regular file conflict
-                    relocatedPath = relocatedPath.everythingAfterFirst("/").addPrefixExtension(relocationConfig.conflictPrefix);
                     fileConflicts.put(originalPath, relocatedPath);
-                    conflicts.put(originalPath, relocatedPath);
-                    conflicts.put(originalPath.replace('/', '\\'), relocatedPath.replace('/', '\\')); // Add the original path with backslashes instead of slashes
-                    return;
                 }
                 conflicts.put(originalPath, relocatedPath); // Add the original path which is something like com/example/Example.class
                 conflicts.put(originalPath.replace('/', '\\'), relocatedPath.replace('/', '\\')); // Add the original path with backslashes instead of slashes
                 conflicts.put(originalPath.removeExtension(), relocatedPath.removeExtension()); // Add the original path without the .class extension
                 conflicts.put(originalPath.removeExtension().replace('/', '.'), relocatedPath.removeExtension().replace('/', '.')); // Add the original path without the .class extension and with dots instead of slashes
                 conflicts.put(originalPath.removeExtension().replace('/', '\\'), relocatedPath.removeExtension().replace('/', '\\')); // Add the original path without the .class extension and with backslashes instead of slashes
+                conflicts.put(originalPath.getBaseName(), relocatedPath.getBaseName()); // Just the filename without the path
+                conflicts.put(originalPath.getBaseName().removeExtension(), relocatedPath.getBaseName().removeExtension()); // Just the filename without the path and without the extension
             });
 
             resources.parallelStream().forEach(entry -> {
@@ -236,7 +234,7 @@ public class Relocator {
 
             // Create mappings for all relocationConfigs
             for (FileInfo fileInfo : fileInfos) {
-                String relocatedPath = FilenameUtils.normalize("${fileInfo.source.conflictPrefix}/${fileInfo.path}", true);
+                String relocatedPath = fileInfo.path.addPrefixExtension(fileInfo.source.conflictPrefix);
                 if (append) fileInfo.source.mappings.putIfAbsent(fileInfo.path, relocatedPath);
                 else {
                     fileInfo.source.mappings.clear();

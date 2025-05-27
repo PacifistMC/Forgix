@@ -29,7 +29,7 @@ public class StringExtension {
     }
 
     public static String addPrefixExtension(@This String self, String prefix) {
-        return "${removeExtension(self)}.${prefix}.${getExtension(self)}";
+        return "${removeExtension(self)}_${prefix}.${getExtension(self)}";
     }
 
     public static String first(@This String self, int n) {
