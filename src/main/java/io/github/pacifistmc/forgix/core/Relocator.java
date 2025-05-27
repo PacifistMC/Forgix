@@ -20,7 +20,6 @@ import java.util.jar.JarFile;
 /**
  * Relocates conflicting files in JARs.
  */
-@SuppressWarnings({"ConstantValue", "DataFlowIssue"}) // Don't worry these aren't real issues, IntelliJ just doesn't understand the weird manifold we have
 public class Relocator {
     private static final File tempDir = Files.createTempDirectory("forgix-tiny").toFile();
     static {
@@ -140,23 +139,17 @@ public class Relocator {
             Map<String, String> conflicts = new HashMap<>();
             Map<String, String> fileConflicts = new HashMap<>(); // Keep track of mixins to handle them specially
             relocationConfig.mappings.forEach((originalPath, relocatedPath) -> {
-//                if (!originalPath.contains("/") && originalPath.getExtension().equals("json")) { // Is in root and is a conflicting json file, assuming mixin
-//                    // Do not put mixins in a subfolder/package instead rename them with prefixed `<conflict_prefix>.` to the name
-//                    fileConflicts.put(originalPath, relocatedPath.replaceFirst("/", "."));
-//                    conflicts.put(originalPath, relocatedPath.replaceFirst("/", "."));
-//                    return;
-//                }
                 if (originalPath.endsWith("META-INF/MANIFEST.MF")) return; // Skip manifest
                 if (!originalPath.endsWith(".class") && !originalPath.startsWith("META-INF/services/")) { // Is a regular file conflict
                     fileConflicts.put(originalPath, relocatedPath);
                 }
-                conflicts.put(originalPath, relocatedPath); // Add the original path which is something like com/example/Example.class
-                conflicts.put(originalPath.replace('/', '\\'), relocatedPath.replace('/', '\\')); // Add the original path with backslashes instead of slashes
+                // replacing with `removeExtension()` would make the ones with extensions be replaced which is what we want
                 conflicts.put(originalPath.removeExtension(), relocatedPath.removeExtension()); // Add the original path without the .class extension
                 conflicts.put(originalPath.removeExtension().replace('/', '.'), relocatedPath.removeExtension().replace('/', '.')); // Add the original path without the .class extension and with dots instead of slashes
                 conflicts.put(originalPath.removeExtension().replace('/', '\\'), relocatedPath.removeExtension().replace('/', '\\')); // Add the original path without the .class extension and with backslashes instead of slashes
-                conflicts.put(originalPath.getBaseName(), relocatedPath.getBaseName()); // Just the filename without the path
-                conflicts.put(originalPath.getBaseName().removeExtension(), relocatedPath.getBaseName().removeExtension()); // Just the filename without the path and without the extension
+                if (originalPath.endsWith(".class")) { // Is a class conflict
+                    conflicts.put("\"${originalPath.getBaseName().removeExtension()}\"", "\"${relocatedPath.getBaseName().removeExtension()}\""); // Just the filename without the path & extension and in quotes (for mixins)
+                }
             });
 
             resources.parallelStream().forEach(entry -> {
@@ -224,23 +217,19 @@ public class Relocator {
             if (!append) jarFile.close(); // Close the jar if we opened it
         });
 
+        if (!append) { // remove all mappings from the relocation configs as we're not appending
+            relocationConfigs.forEach(config -> config.setMappings(new HashMap<>()));
+        }
+
         // Create mappings for conflicts
         filesByPath.forEach((_, fileInfos) -> {
             // Return if there are no conflicts
-            if (fileInfos.size() <= 1) {
-                if (!append) relocationConfigs.forEach(config -> config.setMappings(new HashMap<>())); // Clear all mappings since there are no conflicts and we're supposed to overwrite.
-                return;
-            }
+            if (fileInfos.size() <= 1) return;
 
             // Create mappings for all relocationConfigs
-            for (FileInfo fileInfo : fileInfos) {
-                String relocatedPath = fileInfo.path.addPrefixExtension(fileInfo.source.conflictPrefix);
-                if (append) fileInfo.source.mappings.putIfAbsent(fileInfo.path, relocatedPath);
-                else {
-                    fileInfo.source.mappings.clear();
-                    fileInfo.source.mappings.put(fileInfo.path, relocatedPath);
-                }
-            }
+            fileInfos.forEach(fileInfo ->
+                fileInfo.source.mappings.putIfAbsent(fileInfo.path, fileInfo.path.addPrefixExtension(fileInfo.source.conflictPrefix))
+            );
         });
     }
 }
