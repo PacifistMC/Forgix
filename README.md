@@ -222,5 +222,9 @@ forgix {
 ```
 
 ### This project feels dead
-Forgix is mainly loader and minecraft independent, it is it's own project and doesn't need much maintenance.\
-Depending on how far in the future you are, it very well could be. But the chances are that it'll still work!
+Forgix is loader and minecraft independent, it is its own project and doesn't need much maintenance.\
+Depending on how far in the future you are, it very well could be dead. But the chances are that it'll still work!
+
+___
+Also you should checkout this [very cool template generator](https://template.lewds.dev)!\
+_Report any issues regarding the template generator [here](https://github.com/Ran-Mewo/universal-mod-template-generator)_
