@@ -15,7 +15,7 @@ version = (constantsSource =~ /\s+VERSION\s*=\s*"(.*)";/)[0][1]
 
 configurations {
     shade.extendsFrom downgradeShade
-    implementation.extendsFrom shade
+    compileOnly.extendsFrom shade
     testImplementation.extendsFrom compileOnly
     testAnnotationProcessor.extendsFrom annotationProcessor
 }
