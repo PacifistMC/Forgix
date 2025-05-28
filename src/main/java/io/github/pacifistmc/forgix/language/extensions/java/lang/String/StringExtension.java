@@ -20,6 +20,10 @@ public class StringExtension {
         return FilenameUtils.getBaseName(self);
     }
 
+    public static String getPath(@This String self) {
+        return FilenameUtils.getPathNoEndSeparator(self);
+    }
+
     public static String setExtension(@This String self, String extension) {
         return "${self.removeExtension()}.${extension}";
     }

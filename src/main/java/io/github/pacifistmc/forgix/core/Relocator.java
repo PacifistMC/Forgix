@@ -14,6 +14,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -136,7 +137,7 @@ public class Relocator {
             Map<JarEntry, String> contentMapping = new HashMap<>();
 
             // Create a map of conflicts with path alterations.
-            Map<String, String> conflicts = new HashMap<>();
+            Map<Predicate<String>, Map<String, String>> conflicts = new HashMap<>();
             Map<String, String> fileConflicts = new HashMap<>(); // Keep track of mixins to handle them specially
             relocationConfig.mappings.forEach((originalPath, relocatedPath) -> {
                 if (originalPath.endsWith("META-INF/MANIFEST.MF")) return; // Skip manifest
@@ -144,11 +145,12 @@ public class Relocator {
                     fileConflicts.put(originalPath, relocatedPath);
                 }
                 // replacing with `removeExtension()` would make the ones with extensions be replaced which is what we want
-                conflicts.put(originalPath.removeExtension(), relocatedPath.removeExtension()); // Add the original path without the .class extension
-                conflicts.put(originalPath.removeExtension().replace('/', '.'), relocatedPath.removeExtension().replace('/', '.')); // Add the original path without the .class extension and with dots instead of slashes
-                conflicts.put(originalPath.removeExtension().replace('/', '\\'), relocatedPath.removeExtension().replace('/', '\\')); // Add the original path without the .class extension and with backslashes instead of slashes
+                conflicts.put(content -> content.contains(originalPath.removeExtension()), Map.of(originalPath.removeExtension(), relocatedPath.removeExtension())); // Add the original path without the .class extension // the predicate should be _ -> true but for some reason that doesn't work
+                conflicts.put(_ -> originalPath.contains("/"), Map.of(originalPath.removeExtension().replace('/', '.'), relocatedPath.removeExtension().replace('/', '.'))); // If it's in a directory, add the original path without the .class extension and with dots instead of slashes
+                conflicts.put(_ -> originalPath.contains("/"), Map.of(originalPath.removeExtension().replace('/', '\\'), relocatedPath.removeExtension().replace('/', '\\'))); // If it's in a directory, add the original path without the .class extension and with backslashes instead of slashes
                 if (originalPath.endsWith(".class")) { // Is a class conflict
-                    conflicts.put("\"${originalPath.getBaseName().removeExtension()}\"", "\"${relocatedPath.getBaseName().removeExtension()}\""); // Just the filename without the path & extension and in quotes (for mixins)
+                    conflicts.put(content -> content.contains("\"${originalPath.getPath().replace('/', '.')}\""), // look for the path with dots and in quotes (for mixins), example: "com.example.mod.mixins"
+                            Map.of("\"${originalPath.getBaseName().removeExtension()}\"", "\"${relocatedPath.getBaseName().removeExtension()}\"")); // Just the filename without the path & extension and in quotes (for mixins)
                 }
             });
 
@@ -157,7 +159,11 @@ public class Relocator {
                 for (var conflict : conflicts.entrySet()) {
                     // TODO: Smart replace
                     //  If a file has "com.example.Meow" and "com.example.Meow2" and we're only replacing "com.example.Meow" then only replace all instances of "com.example.Meow" but not "com.example.Meow2"
-                    content = content.replace(conflict.getKey(), conflict.getValue());
+                    if (conflict.getKey().test(content)) {
+                        for (var replacement : conflict.getValue().entrySet()) {
+                            content = content.replace(replacement.getKey(), replacement.getValue());
+                        }
+                    }
                 }
                 contentMapping.put(entry, content);
             });
