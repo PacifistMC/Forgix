@@ -32,7 +32,7 @@ repositories {
     }
 }
 
-String manifoldVersion = '2025.1.16'
+String manifoldVersion = '2025.1.18'
 
 dependencies {
     implementation gradleApi()
