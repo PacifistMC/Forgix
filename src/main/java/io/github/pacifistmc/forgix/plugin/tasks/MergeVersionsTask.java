@@ -20,14 +20,18 @@ public abstract class MergeVersionsTask extends Jar {
 
     @Inject
     public MergeVersionsTask() {
-        // Configure archive properties
-        archiveBaseName.set(settings.archiveBaseName);
-        archiveClassifier.set(settings.archiveClassifier);
-        archiveVersion.set(project.provider(() -> "${settings.archiveVersion.get()}-multi"));
-        destinationDirectory.set(settings.destinationDirectory.get().dir("multiversion"));
+        var multiversion = settings.multiversionConfiguration;
 
-        // Set up input files
-        if (settings.multiversionConfiguration != null) inputJarFiles.setFrom(settings.multiversionConfiguration.inputJars);
+        if (multiversion != null) {
+            // Configure archive properties
+            archiveBaseName.set(multiversion.archiveBaseName);
+            archiveClassifier.set(multiversion.archiveClassifier);
+            archiveVersion.set(multiversion.archiveVersion);
+            destinationDirectory.set(multiversion.destinationDirectory.get());
+
+            // Set up input files
+            inputJarFiles.setFrom(multiversion.inputJars.get());
+        }
     }
 
     void mergeVersions() {
@@ -38,9 +42,9 @@ public abstract class MergeVersionsTask extends Jar {
         // Validate input
         if (inputJarFiles.getFiles().size() < 2) {
             throw new IllegalStateException("""
-                    At least 2 jars must be selected in order for multiversion.
-                    Please configure the forgix extension in your build.gradle file to specify the jars for multiversion.
-                    See https://github.com/PacifistMC/Forgix for more information.""");
+					At least 2 jars must be selected in order for multiversion.
+					Please configure the forgix extension in your build.gradle file to specify the jars for multiversion.
+					See https://github.com/PacifistMC/Forgix for more information.""");
         }
 
         // Perform the merge operation

@@ -278,7 +278,7 @@ public class ForgixConfiguration {
     // Multiversion stuff
 
     public void multiversion(Action<? super MultiversionConfiguration> action) {
-        Action<? super Project> afterEvaluateAction = _ -> action.execute(multiversionConfiguration = new MultiversionConfiguration(getObjects()));
+        Action<? super Project> afterEvaluateAction = _ -> action.execute(multiversionConfiguration = new MultiversionConfiguration(getObjects(), rootProject));
         if (rootProject.getState().getExecuted()) {
             afterEvaluateAction.execute(rootProject);
             return;
@@ -287,15 +287,42 @@ public class ForgixConfiguration {
     }
 
     public static class MultiversionConfiguration {
-        @SuppressWarnings("FieldMayBeFinal") // We use afterEvaluate so this can't be final
-        private FileCollection inputJars;
+        private final Project rootProject;
+        private final Property<String> archiveBaseName;
+        private final Property<String> archiveClassifier;
+        private final Property<String> archiveVersion;
+        private final Property<Directory> destinationDirectory;
+
+		@SuppressWarnings("FieldMayBeFinal") // We use afterEvaluate so this can't be final
+        private Property<FileCollection> inputJars;
 
         @Inject
-        public MultiversionConfiguration(ObjectFactory objects) {
-            this.inputJars = objects.fileCollection();
+        public MultiversionConfiguration(ObjectFactory objects, Project rootProject) {
+            this.rootProject = rootProject;
+            this.inputJars = objects.property(FileCollection.class);
+            this.archiveBaseName = objects.property(String.class);
+            this.archiveClassifier = objects.property(String.class);
+            this.archiveVersion = objects.property(String.class);
+            this.destinationDirectory = objects.directoryProperty();
+		}
+
+        public Property<String> getArchiveBaseName() {
+            return archiveBaseName.convention(rootProject.getName());
         }
 
-        public FileCollection getInputJars() {
+        public Property<String> getArchiveClassifier() {
+            return archiveClassifier.convention("multi");
+        }
+
+        public Property<String> getArchiveVersion() {
+            return archiveVersion.convention(rootProject.getVersion().toString());
+        }
+
+        public Property<Directory> getDestinationDirectory() {
+            return destinationDirectory.convention(rootProject.getLayout().getBuildDirectory().dir("forgix/multiversion"));
+        }
+
+        public Property<FileCollection> getInputJars() {
             return inputJars;
         }
     }
