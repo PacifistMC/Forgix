@@ -49,7 +49,7 @@ dependencies {
     annotationProcessor "systems.manifold:manifold-strings:${manifoldVersion}"
 
     downgradeShade 'net.lingala.zip4j:zip4j:2.11.5'
-    downgradeShade 'commons-io:commons-io:2.19.0'
+    downgradeShade 'commons-io:commons-io:2.20.0'
     downgradeShade 'com.google.code.gson:gson:2.13.1'
 
     downgradeShade('net.fabricmc:tiny-remapper:0.11.1') {
