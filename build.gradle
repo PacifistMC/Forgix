@@ -50,7 +50,7 @@ dependencies {
 
     downgradeShade 'net.lingala.zip4j:zip4j:2.11.5'
     downgradeShade 'commons-io:commons-io:2.19.0'
-    downgradeShade 'com.google.code.gson:gson:2.13.1'
+    downgradeShade 'com.google.code.gson:gson:2.13.2'
 
     downgradeShade('net.fabricmc:tiny-remapper:0.11.1') {
         exclude group: 'org.ow2.asm'
