@@ -52,7 +52,7 @@ dependencies {
     downgradeShade 'commons-io:commons-io:2.19.0'
     downgradeShade 'com.google.code.gson:gson:2.13.1'
 
-    downgradeShade('net.fabricmc:tiny-remapper:0.11.1') {
+    downgradeShade('net.fabricmc:tiny-remapper:0.12.0') {
         exclude group: 'org.ow2.asm'
     }
     downgradeShade 'org.ow2.asm:asm:9.8'
