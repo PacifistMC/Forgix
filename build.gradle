@@ -2,9 +2,9 @@ plugins {
     id 'java'
     id 'java-gradle-plugin'
     id 'maven-publish'
-    id 'com.gradle.plugin-publish' version '0.21.0'
-    id 'com.gradleup.shadow' version '9.0.0-beta12'
-    id 'xyz.wagyourtail.jvmdowngrader' version "1.3.3"
+    id 'com.gradle.plugin-publish' version '2.1.1'
+    id 'com.gradleup.shadow' version '9.6.1'
+    id 'xyz.wagyourtail.jvmdowngrader' version "1.3.6"
 }
 
 group = 'io.github.pacifistmc.forgix'
@@ -32,7 +32,7 @@ repositories {
     }
 }
 
-String manifoldVersion = '2025.1.22'
+String manifoldVersion = '2026.1.8'
 
 dependencies {
     implementation gradleApi()
@@ -48,24 +48,25 @@ dependencies {
     annotationProcessor "systems.manifold:manifold-tuple:${manifoldVersion}"
     annotationProcessor "systems.manifold:manifold-strings:${manifoldVersion}"
 
-    downgradeShade 'net.lingala.zip4j:zip4j:2.11.5'
-    downgradeShade 'commons-io:commons-io:2.19.0'
-    downgradeShade 'com.google.code.gson:gson:2.13.1'
+    downgradeShade 'net.lingala.zip4j:zip4j:2.11.6'
+    downgradeShade 'commons-io:commons-io:2.22.0'
+    downgradeShade 'com.google.code.gson:gson:2.14.0'
 
-    downgradeShade('net.fabricmc:tiny-remapper:0.11.1') {
+    downgradeShade('net.fabricmc:tiny-remapper:0.14.0') {
         exclude group: 'org.ow2.asm'
     }
-    downgradeShade 'org.ow2.asm:asm:9.8'
-    downgradeShade 'org.ow2.asm:asm-commons:9.8'
-    downgradeShade 'org.ow2.asm:asm-tree:9.8'
-    downgradeShade 'org.ow2.asm:asm-util:9.8'
+    downgradeShade 'org.ow2.asm:asm:9.10.1'
+    downgradeShade 'org.ow2.asm:asm-commons:9.10.1'
+    downgradeShade 'org.ow2.asm:asm-tree:9.10.1'
+    downgradeShade 'org.ow2.asm:asm-util:9.10.1'
 
     shade fileTree(dir: 'src/main/resources/multiversion', include: '*.jar').filter { file ->
         !file.name.contains('-javadoc') && !file.name.contains('-sources')
     }
 
-    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation platform('org.junit:junit-bom:6.1.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 downgradeJar.inputFile = tasks.jar.archiveFile
@@ -90,21 +91,18 @@ shadowJar {
 }
 
 gradlePlugin {
+    website = 'https://github.com/PacifistMC'
+    vcsUrl = 'https://github.com/PacifistMC/Forgix'
+
     plugins {
         Forgix {
             id = "io.github.pacifistmc.forgix"
             displayName = 'Forgix'
             description = 'This plugin merges all your modloader & plugin jars into a single jar.'
+            tags = ['forge', 'minecraftforge', 'merge', 'jars', 'fabric', 'fabricmc', 'quilt', 'quiltmc', 'neoforge', 'neoforged', 'minecraft', 'architectury', 'forgix', 'pacifistmc']
             implementationClass = "io.github.pacifistmc.forgix.plugin.ForgixGradlePlugin"
         }
     }
-}
-
-
-pluginBundle {
-    website = 'https://github.com/PacifistMC'
-    vcsUrl = 'https://github.com/PacifistMC/Forgix'
-    tags = ['forge', 'minecraftforge', 'merge', 'jars', 'fabric', 'fabricmc', 'quilt', 'quiltmc', 'neoforge', 'neoforged', 'minecraft', 'architectury', 'forgix', 'pacifistmc']
 }
 
 publishing {

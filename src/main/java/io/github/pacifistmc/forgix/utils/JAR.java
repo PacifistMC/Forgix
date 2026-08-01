@@ -42,7 +42,7 @@ public class JAR {
      * @param jars The collection of JAR files to read the manifests from
      * @return The merged manifest as a string, it will contain all the attributes from all the JAR files without duplicates
      */
-    public static String mergeManifests(Collection<File> jars, Map<Object, Object> extraManifestAttributes = null) {
+    public static String mergeManifests(Collection<File> jars, Map<?, ?> extraManifestAttributes = null) {
         Map<Object, Object> mergedAttributes = jars.stream()
                 .flatMap(jar -> {
                     try (JarFile jarFile = new JarFile(jar)) {
@@ -99,7 +99,7 @@ public class JAR {
      * @param jars The collection of JAR files to process
      * @return A ByteArrayOutputStream containing the combined JAR data
      */
-    public static ByteArrayOutputStream combineJars(Collection<File> jars, boolean mergeMetaInf = true, Map<Object, Object> extraManifestAttributes = null) {
+    public static ByteArrayOutputStream combineJars(Collection<File> jars, boolean mergeMetaInf = true, Map<?, ?> extraManifestAttributes = null) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream(); // This holds the combined JAR data
         var fileSeen = new HashSet<>(); // Create a set to keep track of seen files
         try (ZipOutputStream zos = new ZipOutputStream(baos)) {
