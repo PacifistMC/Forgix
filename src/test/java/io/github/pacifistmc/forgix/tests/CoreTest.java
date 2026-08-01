@@ -10,16 +10,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.apache.commons.io.FileUtils;
 
@@ -137,17 +144,18 @@ public class CoreTest {
             ));
             Relocator.generateMappings(files);
 
-            for (var file : files) {
-                if (debug) {
+            if (debug) {
+                for (var file : files) {
                     // Print the mappings
                     file.mappings.forEach((originalPath, relocatedPath) -> {
                         "Original: ${originalPath}, Relocated: ${relocatedPath}".println();
                     });
                 }
-
-                // Verify conflicts were found
-                assertFalse(file.mappings.isEmpty(), "Conflicts should be present");
             }
+
+            // Verify conflicts were found, the first JAR keeps its original names so only the others get mappings
+            assertTrue(files.getFirst().mappings.isEmpty(), "The first JAR should keep its original names");
+            assertFalse(files.getLast().mappings.isEmpty(), "Conflicts should be present");
 
             TinyClassWriter.write(files, tempDir.toFile());
 
@@ -159,13 +167,13 @@ public class CoreTest {
 
                 // Verify the tiny mappings file was created
                 assertTrue(file.tinyFile.exists(), "Tiny mappings file should be created");
-
-                // Verify the content of the tiny mappings file
-                String content = FileUtils.readFileToString(file.tinyFile, "UTF-8");
-                assertTrue(content.contains("tiny\t2\t0\toriginal\trelocated"), "Tiny mappings file should contain header");
-                assertTrue(content.contains("c\t"), "Tiny mappings file should contain class mappings");
-                assertTrue(content.contains(file.conflictPrefix), "Tiny mappings file should contain conflict prefix");
+                assertTrue(FileUtils.readFileToString(file.tinyFile, "UTF-8").contains("tiny\t2\t0\toriginal\trelocated"), "Tiny mappings file should contain header");
             }
+
+            // Verify the content of the tiny mappings file of the relocated JAR
+            String content = FileUtils.readFileToString(files.getLast().tinyFile, "UTF-8");
+            assertTrue(content.contains("c\t"), "Tiny mappings file should contain class mappings");
+            assertTrue(content.contains(files.getLast().conflictPrefix), "Tiny mappings file should contain conflict prefix");
         }
     }
 
@@ -196,7 +204,7 @@ public class CoreTest {
                 differentJarB1.entries().asIterator().forEachRemaining(System.out::println);
             }
 
-            // There must at least be one entry with the conflict prefix and the entries must be different
+            // The first JAR keeps its original names, the second must have relocated entries and they must be different
 
             AtomicBoolean foundPrefixA = new AtomicBoolean(false);
             AtomicBoolean foundPrefixB = new AtomicBoolean(false);
@@ -215,7 +223,7 @@ public class CoreTest {
             });
 
 
-            assertTrue(foundPrefixA.get(), "JAR A should contain at least one entry with prefix 'diffA'");
+            assertFalse(foundPrefixA.get(), "JAR A keeps its original names so nothing should have the prefix 'diffA'");
             assertTrue(foundPrefixB.get(), "JAR B should contain at least one entry with prefix 'diffB'");
 
             assertNotEquals(entriesA, entriesB, "JAR entries should be different after relocation");
@@ -304,6 +312,8 @@ public class CoreTest {
 
             assertTrue(mergedEntries.containsAll(getJarEntries(mergeJarA)), "Merged JAR should contain all entries from JAR A");
             assertTrue(mergedEntries.containsAll(getJarEntries(mergeJarB)), "Merged JAR should contain all entries from JAR B");
+            assertTrue(mergedEntries.stream().noneMatch(entry -> (entry.startsWith("assets/") || entry.startsWith("data/")) && (entry.contains("_loaderA") || entry.contains("_loaderB"))), "Files the game looks up by path must never be renamed");
+            assertTrue(mergedEntries.contains("fabric.mod.json"), "Loader descriptors must keep their place");
         }
     }
 
@@ -348,6 +358,147 @@ public class CoreTest {
         }
     }
 
+    /**
+     * Test for files that are looked up by convention (assets, data, and the like).
+     * JSON that only differs in formatting must not conflict, unreferenced conflicts must keep their
+     * path (merged if possible, first JAR's copy otherwise) and the input jars must never be modified.
+     */
+    @Test
+    void testConventionFilesKeepTheirPath() throws IOException {
+        File jarA = buildJar(tempDir.resolve("a.jar"), new LinkedHashMap<>() {{
+            put("data/example/recipe.json", "{\n  \"type\": \"crafting\",\n  \"count\": 1\n}\n".getBytes());
+            put("assets/example/lang/en_us.json", "{\"key\": \"from a\"}".getBytes());
+            put("assets/example/sounds.json", "{\"purr\": {}}".getBytes());
+        }});
+        File jarB = buildJar(tempDir.resolve("b.jar"), new LinkedHashMap<>() {{
+            put("data/example/recipe.json", "{\"count\":1,\"type\":\"crafting\"}".getBytes());
+            put("assets/example/lang/en_us.json", "{\"key\": \"from b\"}".getBytes());
+            put("assets/example/sounds.json", "{\"meow\": {}}".getBytes());
+        }});
+        byte[] originalA = Files.readAllBytes(jarA.toPath());
+        byte[] originalB = Files.readAllBytes(jarB.toPath());
+
+        File mergedJar = tempDir.resolve("merged.jar").toFile();
+        Forgix.mergeLoaders(Map.of(jarA, "loaderA", jarB, "loaderB"), mergedJar, silence:true);
+
+        try (JarFile merged = new JarFile(mergedJar)) {
+            Set<String> entries = getJarEntries(merged);
+            assertTrue(entries.stream().noneMatch(entry -> entry.contains("_loaderA") || entry.contains("_loaderB")), "Files the game looks up by path must never be renamed");
+            assertEquals("{\n  \"type\": \"crafting\",\n  \"count\": 1\n}\n", entryContent(merged, "data/example/recipe.json"), "Formatting-only differences are not conflicts and the first copy stays as-is");
+            assertEquals("{\"key\": \"from a\"}", entryContent(merged, "assets/example/lang/en_us.json"), "Contradicting unreferenced files keep the first JAR's copy");
+            assertEquals("{\"purr\":{},\"meow\":{}}", entryContent(merged, "assets/example/sounds.json"), "Unreferenced files that don't contradict each other get merged");
+        }
+
+        assertArrayEquals(originalA, Files.readAllBytes(jarA.toPath()), "Merging must never modify the input jars");
+        assertArrayEquals(originalB, Files.readAllBytes(jarB.toPath()), "Merging must never modify the input jars");
+    }
+
+    /**
+     * Test for the full mixin cascade: the conflicting mixin class gets relocated, the config that
+     * lists it and the refmap follow, everything referencing them points at the new names
+     * and the first JAR stays completely untouched.
+     */
+    @Test
+    void testMixinRelocationCascade() throws IOException {
+        String mixinConfig = "{\"package\": \"com.example.mixin\", \"mixins\": [\"ExampleMixin\"], \"refmap\": \"example.refmap.json\"}";
+        File fabricJar = buildJar(tempDir.resolve("fabric.jar"), new LinkedHashMap<>() {{
+            put("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n\n".getBytes());
+            put("com/example/mixin/ExampleMixin.class", classBytes("com/example/mixin/ExampleMixin", "fabric"));
+            put("example.mixins.json", mixinConfig.getBytes());
+            put("example.refmap.json", "{\"mappings\": {\"com/example/mixin/ExampleMixin\": {\"target\": \"intermediary\"}}}".getBytes());
+            put("fabric.mod.json", "{\"id\": \"example\", \"mixins\": [\"example.mixins.json\"]}".getBytes());
+        }});
+        File neoforgeJar = buildJar(tempDir.resolve("neoforge.jar"), new LinkedHashMap<>() {{
+            put("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\nMixinConfigs: example.mixins.json\n\n".getBytes());
+            put("com/example/mixin/ExampleMixin.class", classBytes("com/example/mixin/ExampleMixin", "neoforge"));
+            put("example.mixins.json", mixinConfig.getBytes());
+            put("example.refmap.json", "{\"mappings\": {\"com/example/mixin/ExampleMixin\": {\"target\": \"mojmap\"}}}".getBytes());
+        }});
+
+        File mergedJar = tempDir.resolve("merged.jar").toFile();
+        Forgix.mergeLoaders(Map.of(fabricJar, "fabric", neoforgeJar, "neoforge"), mergedJar, silence:true);
+
+        try (JarFile merged = new JarFile(mergedJar)) {
+            Set<String> entries = getJarEntries(merged);
+            if (debug) {
+                "Entries in merged JAR:".println();
+                entries.forEach(System.out::println);
+            }
+            assertTrue(entries.contains("com/example/mixin/ExampleMixin.class"), "The first JAR keeps its class name");
+            assertTrue(entries.contains("com/example/mixin/ExampleMixin_neoforge.class"), "The conflicting class gets relocated");
+
+            assertEquals(mixinConfig, entryContent(merged, "example.mixins.json"), "The first JAR's mixin config stays byte-identical");
+            String relocatedConfig = entryContent(merged, "example.mixins_neoforge.json");
+            assertTrue(relocatedConfig.contains("\"ExampleMixin_neoforge\""), "The relocated config lists the relocated mixin class");
+            assertTrue(relocatedConfig.contains("\"example.refmap_neoforge.json\""), "The relocated config points at the relocated refmap");
+
+            assertTrue(entryContent(merged, "example.refmap.json").contains("\"com/example/mixin/ExampleMixin\""), "The first JAR's refmap stays as-is");
+            assertTrue(entryContent(merged, "example.refmap_neoforge.json").contains("\"com/example/mixin/ExampleMixin_neoforge\""), "The relocated refmap keys point at the relocated class");
+
+            assertEquals("example.mixins_neoforge.json", merged.getManifest().getMainAttributes().getValue("MixinConfigs"), "The manifest points at the relocated config");
+        }
+    }
+
+    /**
+     * Test for jar-in-jar deduplication: the same dependency nested by two loaders at different paths
+     * (one with Fabric's injected fabric.mod.json) collapses into the bigger copy and the jarjar metadata follows it.
+     */
+    @Test
+    void testNestedJarDeduplication() throws IOException {
+        byte[] plainLibrary = zipBytes(new LinkedHashMap<>() {{
+            put("com/library/Library.class", classBytes("com/library/Library", "shared"));
+            put("library.txt", "hello".getBytes());
+        }});
+        byte[] injectedLibrary = zipBytes(new LinkedHashMap<>() {{
+            put("com/library/Library.class", classBytes("com/library/Library", "shared"));
+            put("library.txt", "hello".getBytes());
+            put("fabric.mod.json", "{\"id\": \"library\"}".getBytes());
+        }});
+
+        File fabricJar = buildJar(tempDir.resolve("fabric.jar"), new LinkedHashMap<>() {{
+            put("fabric.mod.json", "{\"id\": \"example\", \"jars\": [{\"file\": \"META-INF/jars/library.jar\"}]}".getBytes());
+            put("META-INF/jars/library.jar", injectedLibrary);
+        }});
+        File neoforgeJar = buildJar(tempDir.resolve("neoforge.jar"), new LinkedHashMap<>() {{
+            put("META-INF/jarjar/metadata.json", jarJarMetadata("library").getBytes());
+            put("META-INF/jarjar/library.jar", plainLibrary);
+        }});
+
+        File mergedJar = tempDir.resolve("merged.jar").toFile();
+        Forgix.mergeLoaders(Map.of(fabricJar, "fabric", neoforgeJar, "neoforge"), mergedJar, silence:true);
+
+        try (JarFile merged = new JarFile(mergedJar)) {
+            Set<String> entries = getJarEntries(merged);
+            assertTrue(entries.contains("META-INF/jars/library.jar"), "The bigger copy of the dependency is kept");
+            assertFalse(entries.contains("META-INF/jarjar/library.jar"), "The duplicated copy of the dependency is dropped");
+            assertTrue(entryContent(merged, "META-INF/jarjar/metadata.json").contains("META-INF/jars/library.jar"), "The jarjar metadata points at the kept copy");
+        }
+    }
+
+    /**
+     * Test for when two loaders both use jarjar metadata, the metadata files must merge into the union of their entries.
+     */
+    @Test
+    void testJarJarMetadataMerge() throws IOException {
+        File forgeJar = buildJar(tempDir.resolve("forge.jar"), new LinkedHashMap<>() {{
+            put("META-INF/jarjar/metadata.json", jarJarMetadata("libraryA").getBytes());
+            put("META-INF/jarjar/libraryA.jar", zipBytes(Map.of("a.txt", "a".getBytes())));
+        }});
+        File neoforgeJar = buildJar(tempDir.resolve("neoforge.jar"), new LinkedHashMap<>() {{
+            put("META-INF/jarjar/metadata.json", jarJarMetadata("libraryB").getBytes());
+            put("META-INF/jarjar/libraryB.jar", zipBytes(Map.of("b.txt", "b".getBytes())));
+        }});
+
+        File mergedJar = tempDir.resolve("merged.jar").toFile();
+        Forgix.mergeLoaders(Map.of(forgeJar, "forge", neoforgeJar, "neoforge"), mergedJar, silence:true);
+
+        try (JarFile merged = new JarFile(mergedJar)) {
+            String metadata = entryContent(merged, "META-INF/jarjar/metadata.json");
+            assertTrue(metadata.contains("META-INF/jarjar/libraryA.jar") && metadata.contains("META-INF/jarjar/libraryB.jar"), "The metadata files merge into the union of their entries");
+            assertTrue(getJarEntries(merged).containsAll(Set.of("META-INF/jarjar/libraryA.jar", "META-INF/jarjar/libraryB.jar")), "Both dependencies are kept");
+        }
+    }
+
     // Helper methods
 
     /**
@@ -363,5 +514,52 @@ public class CoreTest {
         }
 
         return entries;
+    }
+
+    /**
+     * Build a JAR file at the given path with the given entries.
+     */
+    private File buildJar(Path path, Map<String, byte[]> entries) throws IOException {
+        Files.write(path, zipBytes(entries));
+        return path.toFile();
+    }
+
+    /**
+     * Build a zip with the given entries.
+     */
+    private byte[] zipBytes(Map<String, byte[]> entries) throws IOException {
+        var baos = new ByteArrayOutputStream();
+        try (var zos = new ZipOutputStream(baos)) {
+            for (var entry : entries.entrySet()) {
+                zos.putNextEntry(new ZipEntry(entry.getKey()));
+                zos.write(entry.getValue());
+                zos.closeEntry();
+            }
+        }
+        return baos.toByteArray();
+    }
+
+    /**
+     * Build a minimal real class so TinyRemapper can parse it, the field name makes the content differ.
+     */
+    private byte[] classBytes(String internalName, String fieldName) {
+        var writer = new ClassWriter(0);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null);
+        writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, fieldName, "I", null, null).visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    /**
+     * Read an entry of the JAR as a string.
+     */
+    private String entryContent(JarFile jarFile, String name) throws IOException {
+        var entry = jarFile.getJarEntry(name);
+        assertNotNull(entry, "${name} should exist in the jar");
+        return JAR.getResource(jarFile, entry);
+    }
+
+    private String jarJarMetadata(String artifact) {
+        return "{\"jars\": [{\"identifier\": {\"group\": \"com.example\", \"artifact\": \"${artifact}\"}, \"version\": {\"range\": \"[1,)\", \"artifactVersion\": \"1.0\"}, \"path\": \"META-INF/jarjar/${artifact}.jar\"}]}";
     }
 }

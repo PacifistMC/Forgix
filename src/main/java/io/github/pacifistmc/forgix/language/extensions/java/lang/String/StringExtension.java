@@ -33,6 +33,7 @@ public class StringExtension {
     }
 
     public static String addPrefixExtension(@This String self, String prefix) {
+        if (getExtension(self).isEmpty()) return "${self}_${prefix}";
         return "${removeExtension(self)}_${prefix}.${getExtension(self)}";
     }
 

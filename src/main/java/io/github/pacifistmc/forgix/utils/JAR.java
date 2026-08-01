@@ -43,7 +43,8 @@ public class JAR {
      * @return The merged manifest as a string, it will contain all the attributes from all the JAR files without duplicates
      */
     public static String mergeManifests(Collection<File> jars, Map<?, ?> extraManifestAttributes = null) {
-        Map<Object, Object> mergedAttributes = jars.stream()
+        Map<Object, Object> mergedAttributes = new LinkedHashMap<>(); // Use LinkedHashMap to maintain insertion order
+        jars.stream()
                 .flatMap(jar -> {
                     try (JarFile jarFile = new JarFile(jar)) {
                         Manifest manifest = jarFile.getManifest();
@@ -54,12 +55,10 @@ public class JAR {
                         return Stream.empty();
                     }
                 })
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,        // Key mapper: Attribute Name
-                        Map.Entry::getValue,      // Value mapper: Attribute Value
-                        (_, newValue) -> newValue, // Merge function for duplicate keys: keep the last value seen
-                        LinkedHashMap::new        // Supplier for the Map: Use LinkedHashMap to maintain insertion order
-                ));
+                .forEach(entry -> {
+                    var previous = mergedAttributes.put(entry.getKey(), entry.getValue()); // Duplicate keys keep the last value seen
+                    if (previous != null && !previous.equals(entry.getValue())) "Manifest attribute ${entry.getKey()} differs between the jars, keeping ${entry.getValue()}".err();
+                });
         // Add extra attributes if provided
         if (extraManifestAttributes != null) mergedAttributes.putAll(extraManifestAttributes);
         // Return the merged attributes as a manifest string
@@ -159,6 +158,21 @@ public class JAR {
     }
 
     /**
+     * Computes the hash of content by meaning rather than by bytes:
+     * JSON that only differs in formatting or key order hashes the same.
+     * @param content The content to compute the hash for
+     * @return The hash of the content
+     */
+    public static byte[] computeSemanticHash(byte[] content) {
+        var text = Text.decode(content);
+        if (text != null) {
+            var canonical = Json.canonicalize(text);
+            if (canonical != null) return MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
+        }
+        return MessageDigest.getInstance("SHA-256").digest(content);
+    }
+
+    /**
      * Computes the hash of a JAR entry.
      * @param jarFile The JAR file containing the entry
      * @param entry The entry to compute the hash for
@@ -203,6 +217,15 @@ public class JAR {
     public static String getResource(JarFile jarFile, JarEntry resource) {
         try (InputStream is = jarFile.getInputStream(resource)) {
             return IOUtils.toString(is, StandardCharsets.UTF_8);
+        }
+    }
+
+    /**
+     * Read a JAR resource as bytes.
+     */
+    public static byte[] getResourceBytes(JarFile jarFile, JarEntry resource) {
+        try (InputStream is = jarFile.getInputStream(resource)) {
+            return is.readAllBytes();
         }
     }
 

@@ -1,12 +1,15 @@
 package io.github.pacifistmc.forgix;
 
+import io.github.pacifistmc.forgix.core.Deduplicator;
 import io.github.pacifistmc.forgix.core.Multiversion;
 import io.github.pacifistmc.forgix.core.RelocationConfig;
 import io.github.pacifistmc.forgix.core.Relocator;
 import io.github.pacifistmc.forgix.utils.JAR;
+import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.function.Function;
 import java.util.jar.JarFile;
@@ -25,9 +28,20 @@ public class Forgix {
             Please report any issues to https://github.com/PacifistMC/Forgix/issues""".println();
         }
 
+        // Work on copies so we never touch the original jars, sorted by loader name so the merge is deterministic
+        File workDir = Files.createTempDirectory("forgix-merge").toFile();
+        workDir.mustDeleteOnExit();
+        Map<File, String> workingCopies = new LinkedHashMap<>();
+        jarsAndLoadersMap.entrySet().stream().sorted(Map.Entry.comparingByValue()).forEach(entry -> {
+            File copy = new File(workDir, "${entry.value}/${entry.key.name}");
+            FileUtils.copyFile(entry.key, copy);
+            workingCopies.put(copy, entry.value);
+        });
+
         List<RelocationConfig> configs = new ArrayList<>();
-        jarsAndLoadersMap.forEach((jar, loader) -> configs.add(new RelocationConfig(new JarFile(jar), loader)));
+        workingCopies.forEach((jar, loader) -> configs.add(new RelocationConfig(new JarFile(jar), loader)));
         Relocator.relocate(configs);
+        Deduplicator.deduplicateNestedZips(List.copyOf(workingCopies.keySet()));
 
         Map<File, String> tinyFiles = configs.stream()
                 .map(RelocationConfig::getTinyFile)
@@ -36,7 +50,7 @@ public class Forgix {
                         file -> "META-INF/forgix/${file.getName()}"
                 ));
 
-        try (var baos = JAR.combineJars(jarsAndLoadersMap.keySet(),
+        try (var baos = JAR.combineJars(workingCopies.keySet(),
                 extraManifestAttributes:Map.of(
                     MANIFEST_VERSION_KEY, VERSION,
                     MANIFEST_MAPPINGS_KEY, String.join(";", tinyFiles.values())
