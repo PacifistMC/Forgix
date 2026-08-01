@@ -157,7 +157,7 @@ tasks.register('buildMultiversionMod', Exec) {
         resourcesDir.mkdirs()
 
         // Find the merged jar in the multiversion mod's build directory
-        def mergedJarDir = file('./Forgix-Multiversion-Mod/build/merged')
+        def mergedJarDir = file('./Forgix-Multiversion-Mod/build/forgix')
         def mergedJar = mergedJarDir.listFiles().find { it.name.endsWith('.jar') }
 
         if (!mergedJar) {
