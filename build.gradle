@@ -84,6 +84,11 @@ shadowJar {
 
     exclude 'META-INF/services/**'
 
+    // shadeDowngradedApi already carries everything the plain jar does, only downgraded, so drop the raw output.
+    // Without this every one of our classes lands here twice and which copy wins is down to the order they're read in.
+    def rawOutput = sourceSets.main.output.files
+    exclude { details -> rawOutput.any { dir -> details.file.absolutePath.startsWith(dir.absolutePath) } }
+
     // Make shadowJar use shadeDowngradedApi
     dependsOn tasks.shadeDowngradedApi
     from(zipTree(tasks.named('shadeDowngradedApi').flatMap { it.archiveFile }))
