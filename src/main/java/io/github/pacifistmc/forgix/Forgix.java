@@ -16,7 +16,7 @@ import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 public class Forgix {
-    public static final String VERSION = "2.0.0-SNAPSHOT.6";
+    public static final String VERSION = "2.0.0";
     private static final String MANIFEST_VERSION_KEY = "Forgix-Version";
     private static final String MANIFEST_MAPPINGS_KEY = "Forgix-Mappings";
 
