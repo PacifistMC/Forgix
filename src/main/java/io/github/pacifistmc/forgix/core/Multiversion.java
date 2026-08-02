@@ -5,19 +5,22 @@ import io.github.pacifistmc.forgix.Forgix;
 import io.github.pacifistmc.forgix.multiversion.versioning.ForgixVersionJson;
 import io.github.pacifistmc.forgix.utils.JAR;
 import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.model.FileHeader;
 import org.apache.commons.io.IOUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
-import java.util.regex.Pattern;
+import java.util.jar.Manifest;
 import java.util.stream.Collectors;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
@@ -146,11 +149,7 @@ public class Multiversion {
                     zipFile.getFileHeaders().forEach(header -> {
                         var name = header.getFileName();
                         zos.putNextEntry(new ZipEntry(name));
-                        zos.write(name.equals("pack.mcmeta") ?
-                                IOUtils.toString(zipFile.getInputStream(header), StandardCharsets.UTF_8)
-                                        .replace("Forgix-Multiversion-Mod", uuid) // Replace the mod name in pack.mcmeta with a UUID to avoid conflicts
-                                        .getBytes(StandardCharsets.UTF_8)
-                                : zipFile.getInputStream(header).readAllBytes());
+                        zos.write(multiversionEntry(zipFile, header, name));
                         zos.closeEntry();
                     });
                 }
@@ -181,57 +180,70 @@ public class Multiversion {
      */
     public static ByteArrayOutputStream mergeVersions(Collection<File> jars) {
         Map<String, Path> versionsAndFilePathMap = new ConcurrentHashMap<>();
-        AtomicReference<LoaderInformation> loaderInformation = new AtomicReference<>();
+        AtomicBoolean anyForge = new AtomicBoolean();
+        AtomicReference<String> fabricModId = new AtomicReference<>();
         // Process each jar to extract version information
         jars.parallelStream().forEach(jar -> {
             try (var zipFile = new ZipFile(jar)) {
-                String mcVersionRange = "[0,)"; // Default to match all versions
-
-                // Try to read from mods.toml or neoforge.mods.toml
-                String tomlContent = null;
                 var fabricModsJson = zipFile.getFileHeader("fabric.mod.json");
-                var modToml = zipFile.getFileHeader("META-INF/mods.toml");
-                var neoForgeModToml = zipFile.getFileHeader("META-INF/neoforge.mods.toml");
+                var forge = VersionDetector.isForge(zipFile);
 
-                if (modToml != null) {
-                    tomlContent = IOUtils.toString(zipFile.getInputStream(modToml), StandardCharsets.UTF_8);
-                } else if (neoForgeModToml != null) {
-                    tomlContent = IOUtils.toString(zipFile.getInputStream(neoForgeModToml), StandardCharsets.UTF_8);
-                } else if (fabricModsJson == null) {
-                    throw new RuntimeException("No mods.toml or neoforge.mods.toml or fabric.mod.json found in jar: " + jar.getName());
+                if (!forge && fabricModsJson == null) {
+                    throw new RuntimeException("No mods.toml, neoforge.mods.toml, mcmod.info or fabric.mod.json found in jar: " + jar.getName());
                 }
 
-                if (loaderInformation.get() == null) {
-                    loaderInformation.set(new LoaderInformation(tomlContent != null,
-                            fabricModsJson == null ? null : gson.fromJson(IOUtils.toString(zipFile.getInputStream(fabricModsJson), StandardCharsets.UTF_8), FabricModJson.class).id));
+                if (forge) anyForge.set(true);
+                if (fabricModsJson != null) {
+                    fabricModId.set(gson.fromJson(IOUtils.toString(zipFile.getInputStream(fabricModsJson), StandardCharsets.UTF_8), FabricModJson.class).id);
                 }
 
-                if (tomlContent != null) {
-                    // Use Regex for now to extract the version range
-                    // TODO: Use a proper TOML parser
-                    var matcher = Pattern.compile(
-                            "\\[\\[dependencies\\.[^]]+]]\\s*" +  // Match dependency section
-                                    "(?:.|\\s)*?" +                           // Any content in between
-                                    "modId\\s*=\\s*\"minecraft\"\\s*" +       // Match modId = "minecraft"
-                                    "(?:.|\\s)*?" +                           // Any content in between
-                                    "versionRange\\s*=\\s*\"([^\"]*)\"",      // Capture the version range
-                            Pattern.DOTALL
-                    ).matcher(tomlContent);
-                    if (matcher.find() && matcher.groupCount() >= 1) {
-                        mcVersionRange = matcher.group(1);
+                String mcVersionRange;
+                if (forge) {
+                    mcVersionRange = VersionDetector.detect(zipFile);
+                    // We can't guess this, two jars that both matched everything would fight over every version
+                    if (mcVersionRange == null) {
+                        throw new RuntimeException("""
+                                Unable to detect which Minecraft version ${jar.getName()} is for.
+                                Mods for 1.12.2 and below often don't declare one, so you'll have to set it yourself.
+                                Please do something like:
+                                ```mcmod.info
+                                [{ "modid": "yourmod", "mcversion": "<insert your mc version>" }]
+                                ```
+                                or set acceptedMinecraftVersions on your @Mod annotation.
+                                See https://github.com/PacifistMC/Forgix for more information.""");
                     }
                 } else { // Is a fabric-only mod, we don't need the mcVersionRange so just set a UUID
                     mcVersionRange = generateMultiversionUUID();
                 }
 
                 // Add to our map with the extracted version range
-                versionsAndFilePathMap.put(mcVersionRange, jar.toPath());
+                var previous = versionsAndFilePathMap.put(mcVersionRange, jar.toPath());
+                // Two jars on the same range would leave us no way to tell which one to load
+                if (previous != null) {
+                    throw new RuntimeException("Both ${jar.getName()} and ${previous.getFileName()} are for Minecraft ${mcVersionRange}");
+                }
             }
         });
-        return mergeVersions(versionsAndFilePathMap, loaderInformation.get());
+        return mergeVersions(versionsAndFilePathMap, new LoaderInformation(anyForge.get(), fabricModId.get()));
     }
 
     public record LoaderInformation(boolean forge, String fabricModId) {}
+
+    /**
+     * Reads one entry out of the multiversion jar, ready to be written into the merged jar.
+     * The TweakClass attribute in its manifest points at a class, so the relocation already took care of that one.
+     *
+     * @param jar    The multiversion jar
+     * @param header The entry to read
+     * @param name   The name of the entry
+     * @return The contents of the entry
+     */
+    private static byte[] multiversionEntry(ZipFile jar, FileHeader header, String name) {
+        if (!name.equals("pack.mcmeta")) return jar.getInputStream(header).readAllBytes();
+        return IOUtils.toString(jar.getInputStream(header), StandardCharsets.UTF_8)
+                .replace("Forgix-Multiversion-Mod", uuid) // Replace the mod name in pack.mcmeta with a UUID to avoid conflicts
+                .getBytes(StandardCharsets.UTF_8);
+    }
 
     /**
      * Fabric has built in support for multiversion that works on all mc versions, so we use that
@@ -277,7 +289,9 @@ public class Multiversion {
                 return;
             }
             try (var zipFile = new ZipFile(jarPath.toFile())) {
-                zipFile.getFileHeaders().parallelStream()
+                // Read the entries one at a time, a ZipFile isn't thread safe and reading it from several
+                // threads corrupts the list of open streams that it closes at the end (the jars are already parallel)
+                zipFile.getFileHeaders().stream()
                     .filter(header -> !header.isDirectory())
                     .forEach(header -> {
                         var fileName = header.getFileName();

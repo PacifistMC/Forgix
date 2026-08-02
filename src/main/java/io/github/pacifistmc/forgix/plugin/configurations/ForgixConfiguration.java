@@ -200,7 +200,7 @@ public class ForgixConfiguration {
 
     public void merge(String name, Action<? super MergeLoaderConfiguration> action) {
         Action<? super Project> afterEvaluateAction = _ -> {
-            var config = new MergeLoaderConfiguration(getObjects());
+            var config = getObjects().newInstance(MergeLoaderConfiguration.class);
 
             if (rootProject.getAllprojects().stream().noneMatch(project -> project.getName().equalsIgnoreCase(name))
                     && (!config.getInputJar().isPresent() || !config.getInputJar().getAsFile().isPresent() || !config.getInputJar().getAsFile().get().exists())) {
@@ -278,7 +278,7 @@ public class ForgixConfiguration {
     // Multiversion stuff
 
     public void multiversion(Action<? super MultiversionConfiguration> action) {
-        Action<? super Project> afterEvaluateAction = _ -> action.execute(multiversionConfiguration = new MultiversionConfiguration(getObjects(), rootProject));
+        Action<? super Project> afterEvaluateAction = _ -> action.execute(multiversionConfiguration = getObjects().newInstance(MultiversionConfiguration.class, rootProject));
         if (rootProject.getState().getExecuted()) {
             afterEvaluateAction.execute(rootProject);
             return;

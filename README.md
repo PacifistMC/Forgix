@@ -123,8 +123,11 @@ forgix {
   - Whether to silence the thank you message.
   - Defaults to `false`.
 - `autoRun` (Boolean)
-  - Whether to automatically run the `mergeJars` task.
+  - Whether to automatically run the `mergeJars` task, along with `mergeVersions` if multiversion is configured.
   - Defaults to `false`.
+- `archiveBaseName` (String)
+  - Sets the base name for the merged archive.
+  - Defaults to the root project's name.
 - `archiveClassifier` (String)
   - Sets the classifier for the merged archive.
   - Defaults to a string joining all the platforms.
@@ -220,6 +223,62 @@ forgix {
     autoRun = true
 }
 ```
+
+### Multiversion
+Forgix can also merge the same mod built for several Minecraft versions into one jar, with the `mergeVersions` task.
+
+Builds by default are generated in `build/forgix/multiversion` but can be altered.\
+`autoRun` runs this too once multiversion is configured.
+
+<details closed>
+<summary>Merging multiple Minecraft versions</summary>
+
+---
+Give `inputJars` one jar per Minecraft version and run `mergeVersions`.
+
+```groovy
+forgix {
+    multiversion {
+        inputJars = files(
+                project(":1.20.1").tasks.remapJar.archiveFile,
+                project(":1.21.1").tasks.remapJar.archiveFile
+        )
+    }
+}
+```
+
+##### Merging loaders and versions at the same time
+Run `mergeJars` for each Minecraft version, then give those merged-loader jars to `mergeVersions`.
+
+```groovy
+forgix {
+    multiversion {
+        inputJars = files(
+                "1.20.1/build/forgix/yourmod-1.20.1-fabric-forge.jar",
+                "1.21.1/build/forgix/yourmod-1.21.1-fabric-forge.jar"
+        )
+    }
+}
+```
+
+##### MultiversionConfiguration options
+- `inputJars` (FileCollection)
+  - Sets the jars to merge, one for each Minecraft version.
+  - At least two are needed.
+- `archiveBaseName` (String)
+  - Sets the base name for the merged archive.
+  - Defaults to the root project's name.
+- `archiveClassifier` (String)
+  - Sets the classifier for the merged archive.
+  - Defaults to `multi`.
+- `archiveVersion` (String)
+  - Sets the version for the merged archive.
+  - Defaults to the root project's version.
+- `destinationDirectory` (Directory)
+  - Sets the directory where the merged jar will be placed.
+  - Defaults to `build/forgix/multiversion` in the root project.
+---
+</details>
 
 ### This project feels dead
 Forgix is loader and minecraft independent, it is its own project and doesn't need much maintenance.\

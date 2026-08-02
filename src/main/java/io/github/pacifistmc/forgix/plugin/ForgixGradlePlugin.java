@@ -35,9 +35,14 @@ public class ForgixGradlePlugin implements Plugin<Project> {
                     })
             );
 
-            // If autoRun is enabled, then only run mergeJars if the root project is being built (the user ran `gradle build` or `gradle assemble`)
-            if (!gradle.rootProject.extensions.getByType(ForgixConfiguration.class).autoRun.get()) return;
-            gradle.rootProject.tasks.getByName("jar").finalizedBy(gradle.rootProject.tasks.getByName("mergeJars"));
+            // If autoRun is enabled, then only run our tasks if the root project is being built (the user ran `gradle build` or `gradle assemble`)
+            var forgix = gradle.rootProject.extensions.getByType(ForgixConfiguration.class);
+            if (!forgix.autoRun.get()) return;
+
+            var jar = gradle.rootProject.tasks.getByName("jar");
+            jar.finalizedBy(gradle.rootProject.tasks.getByName("mergeJars"));
+
+            if (forgix.multiversionConfiguration != null) jar.finalizedBy(gradle.rootProject.tasks.getByName("mergeVersions"));
         });
     }
 }
