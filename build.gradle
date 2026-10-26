@@ -55,10 +55,10 @@ dependencies {
     downgradeShade('net.fabricmc:tiny-remapper:0.14.1') {
         exclude group: 'org.ow2.asm'
     }
-    downgradeShade 'org.ow2.asm:asm:9.10.1'
-    downgradeShade 'org.ow2.asm:asm-commons:9.10.1'
-    downgradeShade 'org.ow2.asm:asm-tree:9.10.1'
-    downgradeShade 'org.ow2.asm:asm-util:9.10.1'
+    downgradeShade 'org.ow2.asm:asm:9.11.1'
+    downgradeShade 'org.ow2.asm:asm-commons:9.11.1'
+    downgradeShade 'org.ow2.asm:asm-tree:9.11.1'
+    downgradeShade 'org.ow2.asm:asm-util:9.11.1'
 
     shade fileTree(dir: 'src/main/resources/multiversion', include: '*.jar').filter { file ->
         !file.name.contains('-javadoc') && !file.name.contains('-sources')
